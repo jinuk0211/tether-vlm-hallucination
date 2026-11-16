@@ -5,6 +5,7 @@
 # so the caller moves on to its next queue.    usage: xl_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; C=$O/claims_xl; mkdir -p $C $O/logs; cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 export RBD2_SETS=$O/sets BENCH=$L/bench HF_HOME=$L/.cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \
        RBD2_THRONE_SET=throne_full1000 RBD2_N=1000 TMPDIR=$L/.cache/tmp XDG_CACHE_HOME=$L/.cache
 UU=$(nvidia-smi --id=$G --query-gpu=uuid --format=csv,noheader)
@@ -21,7 +22,7 @@ while true; do
     [ $(free) -ge 16000 ] || continue; sleep $((RANDOM%20+10)); [ $(free) -ge 16000 ] || continue
     mkdir $C/$U 2>/dev/null || continue
     echo $W > $C/$U/worker; echo "$(date +%T) start $U" >> $O/logs/xlpool-$W.log; UL=$O/logs/xlunit-$W.log
-    $L/venvs/throne/bin/python -u scripts/rbd2/xl_judge.py $UU $O/runs/$D $T < /dev/null > $UL 2>&1; RC=$?
+    $L/venvs/throne/bin/python -u -m tether.eval.throne_xl_judge $UU $O/runs/$D $T < /dev/null > $UL 2>&1; RC=$?
     cat $UL >> $O/logs/xl-$U.log
     if [ $RC -eq 0 ] && judged $D $T; then echo "$(date +%T) end $U" >> $O/logs/xlpool-$W.log
     else

@@ -4,12 +4,12 @@
 # saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
 # and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
-HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=scripts OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
+HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import torch,numpy as np
 from collections import Counter
 from transformers import AutoTokenizer
-from score_vti_alpha_sweep import chair_scorer
-from logit_lens import object_tokens,object_class,CLASSES
+from tether.eval.chair_scorer import chair_scorer
+from tether.analysis.logit_lens import object_tokens,object_class,CLASSES
 O='/home/project-b/LJW/vlm-grounding-steering/outputs/logit-lens-20261104'
 sc=chair_scorer();rng=np.random.default_rng(0)
 def ci(fn,g,n=500):

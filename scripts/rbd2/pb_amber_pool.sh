@@ -1,14 +1,15 @@
 #!/bin/bash
-# Worker for pb_amber_bl.sh: pb_bl_pool.sh plus VTI units through vti_ws_run.py (tag vtiws_v{av}_t{at}), its own claims
+# Worker for pb_amber_bl.sh: pb_bl_pool.sh plus VTI units through baselines/vti_ws.py (tag vtiws_v{av}_t{at}), its own claims
 # dir, and a free-memory check before each unit (other users share these GPUs; one Qwen needs ~18 GB).
 # Queue lines "METHOD ATTN SET OUTDIR START END" -> runs/OUTDIR/METHOD-START-END.jsonl (resumable).
 # usage: pb_amber_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_amber; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-       PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$R/scripts/rbd2:$R/scripts:$R/src \
+       PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$R/src \
        CUDA_VISIBLE_DEVICES=$(nvidia-smi --id=$G --query-gpu=uuid --format=csv,noheader)
 cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 free(){ nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits; }
 for pass in 1 2; do
   while read -r M A S OD B E; do
@@ -20,8 +21,8 @@ for pass in 1 2; do
     echo $W > $K/worker; mkdir -p $OUT
     until [ $(free) -ge 19000 ]; do sleep 60; done
     case $M in
-      vtiws_*) X=(scripts/rbd2/vti_ws_run.py --av $(echo $M | cut -d_ -f2 | cut -c2-) --at $(echo $M | cut -d_ -f3 | cut -c2-) --tag $M);;
-      *) X=(scripts/rbd2/baseline_bench.py --method $M --attn $A);;
+      vtiws_*) X=(-m tether.baselines.vti_ws --av $(echo $M | cut -d_ -f2 | cut -c2-) --at $(echo $M | cut -d_ -f3 | cut -c2-) --tag $M);;
+      *) X=(-m tether.baselines.bench_qwen --method $M --attn $A);;
     esac
     echo "$(date +%T) start $OD $M $B-$E $A" >> $L/amberpool-$W.log
     if .venv/bin/python -u "${X[@]}" --set $O/sets/$S.jsonl --output $OUT --start $B --end $E \

@@ -7,7 +7,7 @@ and steering. The theme is fixed, the method is open.
 - Selection only on dev: chair_dev60 (COCO train2014 dev, first 60) + amber_dev60 (AMBER 101-160).
 - Test sets: chair_test60 (first 60 CHAIR test) + amber_test60 (AMBER 1-60). Every look at a test set is logged
   below with the configs evaluated.
-- Base for every set = vdd_decode.py with alpha = lam = pen = 0 (same batch-2 path, sdpa, bf16, 2080 Ti).
+- Base for every set = decoding/vdd.py with alpha = lam = pen = 0 (same batch-2 path, sdpa, bf16, 2080 Ti).
 
 ## Setup changes vs round 1
 - attn sdpa instead of eager: bf16 + eager writes ' addCriterion' into 12-18% of captions (round 1 and A5000 alike);
@@ -25,7 +25,7 @@ Excluded by the rule: s16a1bl2p1 (largest hallucination drop, AMBER Cover -5.3).
 1. 2026-11-01 ~17:00 UTC, queued once (q0d.txt, q1d.txt): chair_test60, amber_test60, throne_test60, amber_test60L
    x {base, main, noSteer (alpha 0), noBelief (lam 0), constSched (s, w = 1)}. Main fixed on dev before this look;
    the other four are the Base and ablations of that one config, not alternatives to choose from.
-2. 2026-11-01 17:30 UTC, part of look 1: chair_test60 base and main scored (score_sets.py). base CHAIR_s 38.3,
+2. 2026-11-01 17:30 UTC, part of look 1: chair_test60 base and main scored (eval/sets.py). base CHAIR_s 38.3,
    CHAIR_i 12.9, recall 68.4, F1 76.7; main 30.0, 11.6, 63.6, 74.0; dCHAIR_s [-20.0, +3.3], drecall [-10.0, +0.5].
    On dev main kept recall (+1.0); on test it fell 4.8.
 3. 2026-11-01 17:37 UTC: chair_test60 sweep of every round-2 dev config plus bpos_s16a1 and bpos_s16a3

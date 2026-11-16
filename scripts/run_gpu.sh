@@ -12,18 +12,18 @@ if [[ "$split" != "tune" && "$split" != "test" ]]; then
   exit 2
 fi
 
-python -m vlm_grounding verify-splits --manifests "$development"
+python -m tether verify-splits --manifests "$development"
 if [[ "$development" != "$evaluation" ]]; then
-  python -m vlm_grounding verify-splits --manifests "$development" "$evaluation"
+  python -m tether verify-splits --manifests "$development" "$evaluation"
 fi
-python -m vlm_grounding discover --config "$config" --manifest "$development" --output "$output/selection.json"
-python -m vlm_grounding fit --config "$config" --manifest "$development" --selection "$output/selection.json" --output "$output/ephs.json"
+python -m tether discover --config "$config" --manifest "$development" --output "$output/selection.json"
+python -m tether fit --config "$config" --manifest "$development" --selection "$output/selection.json" --output "$output/ephs.json"
 for method in revis grains vti; do
   extra=()
   if [[ "$method" == "revis" ]]; then
     extra=(--calibration "$development")
   fi
-  python -m vlm_grounding extract --method "$method" --config "$config" --manifest "$development" --output "$output/$method.pt" "${extra[@]}"
+  python -m tether extract --method "$method" --config "$config" --manifest "$development" --output "$output/$method.pt" "${extra[@]}"
 done
 for method in base ephs revis rudder grains vti; do
   extra=()
@@ -32,6 +32,6 @@ for method in base ephs revis rudder grains vti; do
   elif [[ "$method" != "base" && "$method" != "rudder" ]]; then
     extra=(--artifact "$output/$method.pt")
   fi
-  python -m vlm_grounding run --method "$method" --config "$config" --manifest "$evaluation" --split "$split" --output "$output/$method.jsonl" "${extra[@]}"
+  python -m tether run --method "$method" --config "$config" --manifest "$evaluation" --split "$split" --output "$output/$method.jsonl" "${extra[@]}"
 done
-echo "Predictions are complete. Run 'vlm-grounding compare' with the actual CHAIR/Causal scorers."
+echo "Predictions are complete. Run 'tether compare' with the actual CHAIR/Causal scorers."

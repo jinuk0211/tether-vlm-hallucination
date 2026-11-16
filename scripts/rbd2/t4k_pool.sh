@@ -1,9 +1,9 @@
 #!/bin/bash
 # THRONE rows 1000-4999 (t4k_chain.sh): decode worker. Queue lines "KIND SET OUTDIR TAG START END args..." -> runs/OUTDIR/TAG-START-END.jsonl
 # (the decoders resume partial files), with the decoder and environment of the pool that made the 1,000-image rows:
-#   qb  baseline_bench.py --method TAG       (pb_bl_pool.sh)      gb  gemma_bench.py --method TAG                     (gemma_pool.sh)
-#   qv  vdd_decode.py --model qwen           (pb_pool.sh)         gv  vdd_decode.py --model gemma --attn eager        (gemma_pool.sh)
-#   v4q vdd4_decode.py --model qwen          (vdd4_pool.sh)       v4g vdd4_decode.py --model gemma                    (vdd4_pool.sh)
+#   qb  baselines/bench_qwen.py --method TAG       (pb_bl_pool.sh)      gb  baselines/bench_gemma.py --method TAG                     (gemma_pool.sh)
+#   qv  decoding/vdd.py --model qwen           (pb_pool.sh)         gv  decoding/vdd.py --model gemma --attn eager        (gemma_pool.sh)
+#   v4q decoding/vdd_vobj.py --model qwen          (vdd4_pool.sh)       v4g decoding/vdd_vobj.py --model gemma                    (vdd4_pool.sh)
 # A unit is claimed with mkdir in claims_t4k only when the GPU has the model's MiB free twice, 10-30 s apart. CUDA out-of-memory is not counted
 # (back off 1-3 min); other failures twice -> skipped. Leaves as soon as no unit is left to claim (units other workers hold are theirs), so the
 # slot moves on to judging. The file t4k/STOP makes it leave after its current unit.     usage: t4k_pool.sh GPU_INDEX WORKER_NAME QUEUE
@@ -14,7 +14,7 @@ export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_H
        CUDA_VISIBLE_DEVICES=$(nvidia-smi --id=$G --query-gpu=uuid --format=csv,noheader)
 cd $R
 free(){ nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits; }
-P3=$R/scripts/rbd2:$R/scripts:$R/src
+P3=$R/src
 while [ ! -f $O/t4k/STOP ]; do
   RAN=; LEFT=0
   while read -r K D OD T S E A; do
@@ -29,12 +29,12 @@ while [ ! -f $O/t4k/STOP ]; do
     mkdir $C/$U 2>/dev/null || continue
     echo $W > $C/$U/worker; mkdir -p $OUT; echo "$(date '+%m-%d %T') start $U" >> $LG/t4kpool-$W.log; UL=$LG/t4kunit-$W.log
     case $K in
-      qb)  PP=$P3; X=(scripts/rbd2/baseline_bench.py --method $T --set $O/sets/$D.jsonl);;
-      gb)  PP=$P3; X=(scripts/rbd2/gemma_bench.py --method $T --set $O/sets/$D.jsonl);;
-      qv)  PP=$R/scripts; X=(scripts/rbd2/vdd_decode.py --model qwen --data $O/sets/$D.jsonl --tag $T);;
-      gv)  PP=$P3; X=(scripts/rbd2/vdd_decode.py --model gemma --attn eager --data $O/sets/$D.jsonl --tag $T);;
-      v4q) PP=$P3; X=(scripts/rbd2/vdd4_decode.py --model qwen --data $O/sets/$D.jsonl --tag $T);;
-      v4g) PP=$P3; X=(scripts/rbd2/vdd4_decode.py --model gemma --data $O/sets/$D.jsonl --tag $T);;
+      qb)  PP=$P3; X=(-m tether.baselines.bench_qwen --method $T --set $O/sets/$D.jsonl);;
+      gb)  PP=$P3; X=(-m tether.baselines.bench_gemma --method $T --set $O/sets/$D.jsonl);;
+      qv)  PP=$R/src; X=(-m tether.decoding.vdd --model qwen --data $O/sets/$D.jsonl --tag $T);;
+      gv)  PP=$P3; X=(-m tether.decoding.vdd --model gemma --attn eager --data $O/sets/$D.jsonl --tag $T);;
+      v4q) PP=$P3; X=(-m tether.decoding.vdd_vobj --model qwen --data $O/sets/$D.jsonl --tag $T);;
+      v4g) PP=$P3; X=(-m tether.decoding.vdd_vobj --model gemma --data $O/sets/$D.jsonl --tag $T);;
       *)   echo "$(date '+%m-%d %T') unknown kind $K" >> $LG/t4kpool-$W.log; rm -r $C/$U; continue;;
     esac
     PYTHONPATH=$PP .venv/bin/python -u "${X[@]}" --output $OUT --start $S --end $E $A < /dev/null > $UL 2>&1; RC=$?

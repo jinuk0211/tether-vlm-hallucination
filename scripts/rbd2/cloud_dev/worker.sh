@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: worker.sh GPU QUEUEFILE   -- lines "SET TAG vdd_decode-args..."; run in order, one at a time
+# usage: worker.sh GPU QUEUEFILE   -- lines "SET TAG decoding.vdd-args..."; run in order, one at a time
 G=$1; Q=$2
 while read -r S T A; do
   [ -z "$S" ] && continue; case $S in \#*) continue;; esac

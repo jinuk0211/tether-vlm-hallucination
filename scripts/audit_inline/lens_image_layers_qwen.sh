@@ -7,9 +7,9 @@ R=/home/project-b/LJW/vlm-grounding-steering; cd $R; O=$R/outputs/logit-lens-202
 nvidia-smi --id=5 --query-gpu=memory.free,utilization.gpu --format=csv,noheader
 F=$(nvidia-smi --id=5 --query-gpu=memory.free --format=csv,noheader,nounits)
 if [ $F -ge 25000 ]; then
-ENV="HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONPATH=scripts OMP_NUM_THREADS=8"
+ENV="HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONPATH=src OMP_NUM_THREADS=8"
 U=$(nvidia-smi --id=5 --query-gpu=uuid --format=csv,noheader)
-nohup bash -c "env $ENV CUDA_VISIBLE_DEVICES=$U .venv/bin/python -u scripts/logit_lens.py image --model gemma --output $O > $O/logs/gemma-image.log 2>&1; env $ENV CUDA_VISIBLE_DEVICES= .venv/bin/python scripts/logit_lens.py analyze --model gemma --output $O > $O/logs/gemma-analyze.log 2>&1; echo GEMMA_IMAGE_DONE > $O/logs/gemma-image-done" > /dev/null 2>&1 &
+nohup bash -c "env $ENV CUDA_VISIBLE_DEVICES=$U .venv/bin/python -u -m tether.analysis.logit_lens image --model gemma --output $O > $O/logs/gemma-image.log 2>&1; env $ENV CUDA_VISIBLE_DEVICES= .venv/bin/python -m tether.analysis.logit_lens analyze --model gemma --output $O > $O/logs/gemma-analyze.log 2>&1; echo GEMMA_IMAGE_DONE > $O/logs/gemma-image-done" > /dev/null 2>&1 &
 echo "started $!"
 fi
 OMP_NUM_THREADS=4 .venv/bin/python - <<'P'

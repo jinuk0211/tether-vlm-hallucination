@@ -1,12 +1,12 @@
 #!/bin/bash
-# Qwen3-VL GrAInS (before HAT+ALOHa). Vector as for the earlier models (extract_qwen3_grains.py, FP32, GPU 4), then 2 workers each on GPUs 4 and 5.
+# Qwen3-VL GrAInS (before HAT+ALOHa). Vector as for the earlier models (baselines/grains_qwen3.py, FP32, GPU 4), then 2 workers each on GPUs 4 and 5.
 # Rows: runs/qchair_bl2. Log: logs/qbl.log. QBL_GRAINS_FAILED if the extraction stops, QBL_DONE at the end. REVIS is not here (qbl_revis.sh).
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 LOG=$O/logs/qbl.log; Q=$O/queues/qbl.txt
 uuid(){ nvidia-smi --id=$1 --query-gpu=uuid --format=csv,noheader; }
-export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=$L/.cache/nltk_data PYTHONPATH=$R/scripts/rbd2:$R/scripts:$R/src
+export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=$L/.cache/nltk_data PYTHONPATH=$R/src
 echo "=== $(date +%T) qbl_chain.sh start" >> $LOG
-if ! CUDA_VISIBLE_DEVICES=$(uuid 4) .venv/bin/python -u scripts/rbd2/extract_qwen3_grains.py >> $LOG 2>$O/logs/qbl_grains.err; then echo "=== $(date +%T) QBL_GRAINS_FAILED (logs/qbl_grains.err)" >> $LOG; exit 1; fi
+if ! CUDA_VISIBLE_DEVICES=$(uuid 4) .venv/bin/python -u -m tether.baselines.grains_qwen3 >> $LOG 2>$O/logs/qbl_grains.err; then echo "=== $(date +%T) QBL_GRAINS_FAILED (logs/qbl_grains.err)" >> $LOG; exit 1; fi
 echo "=== $(date +%T) GrAInS vector ready" >> $LOG
 for b in $(seq 0 50 450); do echo "grains_clone eager $b $((b+50))"; done > $Q
 pool(){ G=$1; W=$2
@@ -20,7 +20,7 @@ pool(){ G=$1; W=$2
         [ $(nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits) -ge 18900 ] || continue
         mkdir $C/$U 2>/dev/null || continue
         echo "$(date +%T) $W start $U" >> $O/logs/qblpool.log
-        if .venv/bin/python -u scripts/rbd2/qwen3_bl.py --method $M --attn $AT --set $O/sets/chair_test500.jsonl --output $O/runs/qchair_bl2 --start $S --end $E < /dev/null > $O/logs/qblunit-$W.log 2>&1
+        if .venv/bin/python -u -m tether.baselines.bench_qwen3_official --method $M --attn $AT --set $O/sets/chair_test500.jsonl --output $O/runs/qchair_bl2 --start $S --end $E < /dev/null > $O/logs/qblunit-$W.log 2>&1
         then echo "$(date +%T) $W end $U" >> $O/logs/qblpool.log
         else echo "$(date +%T) $W FAILED $U" >> $O/logs/qblpool.log; echo $W >> $C/fail-$U; rm -r "${C:?}/${U:?}"; fi
         ran=1; break
@@ -33,5 +33,5 @@ pool(){ G=$1; W=$2
 pool 4 q4a; pool 5 q5a; sleep 150; pool 4 q4b; pool 5 q5b
 wait
 echo "=== $(date +%T) decoded" >> $LOG
-CUDA_VISIBLE_DEVICES= .venv/bin/python -u scripts/rbd2/analysis/qbl_report.py >> $LOG 2>$O/logs/qbl_report.err
+CUDA_VISIBLE_DEVICES= .venv/bin/python -u -m tether.experiments.reports.qwen3_official >> $LOG 2>$O/logs/qbl_report.err
 echo "=== $(date +%T) QBL_DONE" >> $LOG

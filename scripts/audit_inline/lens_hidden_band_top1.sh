@@ -4,12 +4,12 @@
 # saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
 # and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
-HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=scripts OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
+HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import glob,torch,numpy as np
 from collections import Counter
 from transformers import AutoTokenizer
-from score_vti_alpha_sweep import chair_scorer
-from logit_lens import object_tokens
+from tether.eval.chair_scorer import chair_scorer
+from tether.analysis.logit_lens import object_tokens
 O='outputs/logit-lens-20261104';sc=chair_scorer();rng=np.random.default_rng(0)
 B=[0,32,64,96,128,192,256,384,513];lab_b=[f'{a}-{b-1}' for a,b in zip(B,B[1:])]
 for m,ck,rev,band in (('qwen','Qwen/Qwen2.5-VL-7B-Instruct','cc594898137f460bfe9f0759e9844b3ce807cfb5',range(22,28)),('gemma','google/gemma-4-E4B-it','ee0ef6023621cff504d758262d4e04895a5af4a2',range(30,42))):

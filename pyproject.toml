@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vlm-grounding-steering"
+name = "tether"
 version = "0.1.0"
 description = "Steering and decoding experiments for VLM caption hallucination"
 requires-python = ">=3.11,<3.14"
@@ -21,13 +21,13 @@ eval = ["nltk>=3.9,<4", "pycocotools>=2.0.8", "PatternLite==3.6", "tqdm>=4.66"]
 test = ["pytest>=8,<9", "ruff==0.14.1"]
 
 [project.scripts]
-vlm-grounding = "vlm_grounding.cli:main"
+tether = "tether.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-vlm_grounding = ["resources/*.json"]
+tether = ["resources/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

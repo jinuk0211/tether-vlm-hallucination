@@ -5,11 +5,11 @@
 # and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
 date '+%m-%d %T'; nvidia-smi --query-gpu=index,memory.free,utilization.gpu --format=csv,noheader | sed -n 3,6p; nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader | while IFS=, read u p m; do i=$(nvidia-smi --query-gpu=index,uuid --format=csv,noheader | grep "$u" | cut -d, -f1); echo "gpu$i $m $(ps -o args= -p $p | cut -c1-70)"; done | grep -E "^gpu[2345] "; ps -eo args | grep -E "scripts/rbd2/.*\.sh" | grep -v grep | cut -c1-70 | sort | uniq -c
-HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=scripts OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
+HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import json,torch,numpy as np
 from transformers import AutoTokenizer
-from score_vti_alpha_sweep import chair_scorer
-from logit_lens import object_tokens,object_class
+from tether.eval.chair_scorer import chair_scorer
+from tether.analysis.logit_lens import object_tokens,object_class
 O='outputs/logit-lens-20261104';sc=chair_scorer();rng=np.random.default_rng(0)
 B=[0,64,128,513]
 for m,ck,rev in (('qwen','Qwen/Qwen2.5-VL-7B-Instruct','cc594898137f460bfe9f0759e9844b3ce807cfb5'),('gemma','google/gemma-4-E4B-it','ee0ef6023621cff504d758262d4e04895a5af4a2')):

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Adds GPUs to the running HAT + ALOHa run (hat_gpu3.sh) as they free up, no restart.
-#   GPU 2 x1        when the process LENS_PID (the earlier j2 pool) has gone, no scripts/logit_lens.py runs, and CHAIR dev (cdev_chain.sh) has ended
+#   GPU 2 x1        when the process LENS_PID (the earlier j2 pool) has gone, no analysis/logit_lens.py runs, and CHAIR dev (cdev_chain.sh) has ended
 #   GPU 4 x2, 5 x2  by hand only: touch $HAT_RUN/join_gpu45 (after the Qwen3 GrAInS and REVIS runs). No process or memory check:
 #                   a job stopped without its end line keeps its GPUs booked while they look free.
 #                   First slot on each at join_gpu45, next to one CHAIR dev worker; second slot when CHAIR dev has ended.

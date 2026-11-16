@@ -2,11 +2,12 @@
 # Our method on the rest of AMBER generative so it covers the same 1004 images as the
 # baselines (pb_amber_bl.sh). amber_test500 = AMBER ids 1-100 and 201-600; here ids 101-200 and 601-1004, i.e. rows
 # 100-200 and 600-1004 of sets/amber_full1004.jsonl (rows identical to amber_test500's). Base and mainMed exactly as in
-# queues/pool500.txt (vdd_decode; mainMed = --alpha 1 --layer 16 --lam 1 --pen 0.5 --norm median). The vdd Base differs from
-# the baseline_bench Base (114/500 captions identical), so ours is compared with its own vdd Base, as on the 500 images.
+# queues/pool500.txt (decoding.vdd; mainMed = --alpha 1 --layer 16 --lam 1 --pen 0.5 --norm median). The vdd Base differs from
+# the baselines.bench_qwen Base (114/500 captions identical), so ours is compared with its own vdd Base, as on the 500 images.
 # Workers: pb_pool.sh on GPU 2 and GPU 3 (one Qwen each). Then join with runs/amber_test500_all -> runs/amber_full1004_ours_all,
-# score_sets.py amber_full1004 (paired bootstrap vs vdd base).   Log: logs/amber_ours1004.log, AMBER_OURS_DONE
+# eval/sets.py amber_full1004 (paired bootstrap vs vdd base).   Log: logs/amber_ours1004.log, AMBER_OURS_DONE
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/amber_ours1004.log; Q=$O/queues/amber_ours1004.txt
 { echo "# base + mainMed on AMBER ids 101-200, 601-1004"
   for b in $(seq 100 50 150) $(seq 600 50 1000); do e=$((b+50)); [ $e -gt 1004 ] && e=1004
@@ -32,5 +33,5 @@ for t in ['base','mainMed']:
 PY
 export RBD2_SETS=$O/sets AMBER_REPO=$R/data/amber/repo NLTK_DATA=$L/.cache/nltk_data PYTHONDONTWRITEBYTECODE=1 RBD2_N=1004
 { echo "=== $(date +%T) amber_full1004 ours (paired bootstrap vs vdd base)"
-  $L/venvs/amber/bin/python scripts/rbd2/score_sets.py amber_full1004 $O/runs/amber_full1004_ours_all 2>&1 | grep -v 'it/s'
+  $L/venvs/amber/bin/python -m tether.eval.sets amber_full1004 $O/runs/amber_full1004_ours_all 2>&1 | grep -v 'it/s'
   echo "=== $(date +%T) AMBER_OURS_DONE"; } >> $LOG

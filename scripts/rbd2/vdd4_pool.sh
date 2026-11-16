@@ -1,5 +1,5 @@
 #!/bin/bash
-# Worker for vdd4_chain.sh. Queue lines "DATA OUTDIR TAG START END args..." -> vdd4_decode.py --model $MODEL on
+# Worker for vdd4_chain.sh. Queue lines "DATA OUTDIR TAG START END args..." -> decoding/vdd_vobj.py --model $MODEL on
 # sets/DATA.jsonl rows START-END into runs/OUTDIR/TAG-START-END.jsonl (resumable). A unit is claimed with mkdir in
 # claims_vdd4 only when the GPU has MIN_FREE MiB free twice, 10-30 s apart (other jobs share these GPUs). CUDA
 # out-of-memory failures are not counted (back off 1-3 min); other failures twice -> skipped. Exits when every unit is
@@ -8,9 +8,10 @@
 G=$1; W=$2; Q=$3; MF=${4:-19500}; MODEL=${5:-qwen}
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_vdd4; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-       PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONPATH=$R/scripts/rbd2:$R/scripts:$R/src \
+       PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONPATH=$R/src \
        VDD_GRAY=$O/gray448.png CUDA_VISIBLE_DEVICES=$(nvidia-smi --id=$G --query-gpu=uuid --format=csv,noheader)
 cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 free(){ nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits; }
 run_one(){
   while read -r D OD T S E A; do
@@ -22,7 +23,7 @@ run_one(){
     [ $(free) -ge $MF ] || continue; sleep $((RANDOM%20+10)); [ $(free) -ge $MF ] || continue
     mkdir $C/$U 2>/dev/null || continue
     echo $W > $C/$U/worker; mkdir -p $OUT; echo "$(date +%T) start $U" >> $L/v4pool-$W.log; UL=$L/v4unit-$W.log
-    .venv/bin/python -u scripts/rbd2/vdd4_decode.py --model $MODEL --data $O/sets/$D.jsonl --tag $T --output $OUT --start $S --end $E $A < /dev/null > $UL 2>&1; RC=$?
+    .venv/bin/python -u -m tether.decoding.vdd_vobj --model $MODEL --data $O/sets/$D.jsonl --tag $T --output $OUT --start $S --end $E $A < /dev/null > $UL 2>&1; RC=$?
     cat $UL >> $L/v4-$OD-$T.log
     if [ $RC -eq 0 ]; then echo "$(date +%T) end $U" >> $L/v4pool-$W.log; return 0; fi
     rm -r $C/$U

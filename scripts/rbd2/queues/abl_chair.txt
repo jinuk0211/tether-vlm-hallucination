@@ -1,4 +1,4 @@
-# Qwen CHAIR ablation of RBD s16a2bl1p05 (abl_prep.py)
+# Qwen CHAIR ablation of RBD s16a2bl1p05 (experiments/chair_ablation.py)
 chair_test500 chair_abl500 abl_nosteer 0 50 --attn sdpa --lam 1 --pen 0.5
 chair_test500 chair_abl500 abl_nosteer 50 100 --attn sdpa --lam 1 --pen 0.5
 chair_test500 chair_abl500 abl_nosteer 100 150 --attn sdpa --lam 1 --pen 0.5

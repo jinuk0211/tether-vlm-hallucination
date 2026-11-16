@@ -6,7 +6,7 @@ they matter, and differences of a few points are inside them. Code: [scripts/rbd
 
 ## 1. RBD on held-out sets (round 1)
 
-`scripts/rbd_decode.py` unchanged, lambda 0.1 (chosen on dev), bf16 on RTX 2080 Ti, Base re-run under the same
+`decoding/pilot/decode.py` unchanged, lambda 0.1 (chosen on dev), bf16 on RTX 2080 Ti, Base re-run under the same
 conditions. These runs use the repo's eager attention and carry the defect in section 2.
 
 CHAIR test, first 100 images:
@@ -45,7 +45,7 @@ sdpa. Round-1 numbers above, and earlier results made with eager bf16, carry thi
 
 ## 3. Visual-evidence decoding (round 2)
 
-`scripts/rbd2/vdd_decode.py`. Each caption is decoded as a batch of two in lockstep: the real image and the 448x448
+`decoding/vdd.py`. Each caption is decoded as a batch of two in lockstep: the real image and the 448x448
 gray image of visual_decay E3, with the gray row always fed the real row's token. Every step then gives
 log p_real and log p_gray, and every layer h_real and h_gray, without an extra pass over the caption.
 r(t) is the measured gray-KL reliance curve (1 at the start, about 0.02 at 512 tokens).
@@ -119,9 +119,9 @@ rule-based mode is CHAIR's COCO-80 matching under other prompts.
 - `sets/`: every manifest used (image paths are the server's).
 - `diagnostics/`: per-object breakdowns and hallucination positions printed by the diag_* scripts.
 - `scripts/rbd2/` ran from /workspace/rbd_pilot on the server; paths inside are the server's. Entry points:
-  `vdd_decode.py` (round-2 decoder), `worker.sh`/`vrun.sh`/`chain.sh` (queues), `score_sets.py` (CHAIR/AMBER),
-  `score_throne.py` (THRONE), `queue.sh` + `score_chair100.py` + `score_amber100.py` (round 1),
-  `prep*.py`, `bench_setup.sh`, `fetchx.py`, `pdl.py`, `wheels.py`, `install.sh` (data, models, environments).
+  `decoding/vdd.py` (round-2 decoder), `worker.sh`/`vrun.sh`/`chain.sh` (queues), `eval/sets.py` (CHAIR/AMBER),
+  `eval/throne.py` (THRONE), `queue.sh` + `eval/chair_subset.py` + `eval/amber.py` (round 1),
+  `experiments/cloud_dev/*.py`, `bench_setup.sh`, `fetchx.py`, `pdl.py`, `wheels.py`, `install.sh` (data, models, environments).
 
 ## 6. Added on 2026-11-02 (after 5d8ec3e)
 
@@ -153,4 +153,4 @@ direction as round 1 on CHAIR test 100 (CHAIR_s -12, recall -3.6).
 
 No results here for the rest of the test queue (amber_test60, throne_test60, amber_test60L, ablations) or for the
 chair_test60 sweep ([chair_test60_sweep/README.md](chair_test60_sweep/README.md); `scripts/rbd2/sweep.sh`,
-`scripts/rbd2/sweep_decode.py` with `--bpos`).
+`decoding/sweep.py` with `--bpos`).

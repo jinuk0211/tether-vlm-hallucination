@@ -1,10 +1,10 @@
-L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R/scripts/rbd2
+L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R; export PYTHONPATH=$R/src
 export BENCH=$L/bench RBD2_SETS=$O/sets PYTHONDONTWRITEBYTECODE=1 RBD2_THRONE_SET=throne_full1000 RBD2_N=1000
 $L/venvs/throne/bin/python - <<'PY'
 import glob,hashlib,json,sys,contextlib,io
 from pathlib import Path
 import numpy as np
-import score_throne as S
+from tether.eval import throne as S
 sys.path.insert(0,str(S.T));import throne_score_aqa as A,pycocotools.coco as coco
 with contextlib.redirect_stdout(io.StringIO()):ds=coco.COCO(S.COCO)
 cats=sorted(ds.cats.values(),key=lambda x:x['id']);idx={i:c['name'] for i,c in enumerate(cats)};cid={c['id']:c['name'] for c in cats}

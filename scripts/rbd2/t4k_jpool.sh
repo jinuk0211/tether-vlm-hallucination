@@ -11,6 +11,7 @@ export BENCH=$L/bench RBD2_SETS=$O/sets HF_HOME=$L/.cache/huggingface HF_HUB_OFF
        TMPDIR=$L/.cache/tmp XDG_CACHE_HOME=$L/.cache
 UU=$(nvidia-smi --id=$G --query-gpu=uuid --format=csv,noheader)
 cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 free(){ nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits; }
 gate(){ local g; g=$(awk -v j=$1 '$1==j{print $2}' $O/t4k/jgate 2>/dev/null); echo ${g:-16000}; }
 mine(){ [ $MODE = all ] && return 0; local l; l=$(cat $O/t4k/light 2>/dev/null || echo base large); [[ " $l " == *" $1 "* ]]; }
@@ -29,7 +30,7 @@ while [ ! -f $O/t4k/STOP ]; do
     MF=$(gate $J); [ $(free) -ge $MF ] || continue; sleep $((RANDOM%20+10)); [ $(free) -ge $MF ] || continue
     mkdir $C/$U 2>/dev/null || continue
     echo $W > $C/$U/worker; echo "$(date '+%m-%d %T') start $U" >> $LG/t4kj-$W.log; UL=$LG/t4kjunit-$W.log
-    $L/venvs/throne/bin/python -u scripts/rbd2/t4k_judge.py $UU $M $T $B $J < /dev/null > $UL 2>&1; RC=$?
+    $L/venvs/throne/bin/python -u -m tether.eval.throne_5k_judge $UU $M $T $B $J < /dev/null > $UL 2>&1; RC=$?
     cat $UL >> $LG/t4kj-$M-$T.log
     if [ $RC -eq 0 ] && ls $O/runs/t4k_$M/eval/$T/b$B-$J/combined/*flan-t5-$J.json > /dev/null 2>&1; then echo "$(date '+%m-%d %T') end $U" >> $LG/t4kj-$W.log
     else

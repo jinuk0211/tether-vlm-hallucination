@@ -1,17 +1,18 @@
 #!/bin/bash
 # Baselines on full AMBER generative (1004 images), after our method's runs.
-# Set amber_full1004: data/amber/amber_generative.jsonl in AMBER id order, rows built as pb_make500.py builds amber_test500
+# Set amber_full1004: data/amber/amber_generative.jsonl in AMBER id order, rows built as data/sets_500.py builds amber_test500
 # (prompt "Describe this image.", max_new_tokens 512); every amber_test500 row is identical to its row here.
-# Methods as the full-THRONE baselines (baseline_bench.py: base, rudder_clone BF16 sdpa; grains_clone FP16 eager), VTI with
+# Methods as the full-THRONE baselines (baselines/bench_qwen.py: base, rudder_clone BF16 sdpa; grains_clone FP16 eager), VTI with
 # the whitespace-normalised direction at the setting vti_chair.sh picks on CHAIR dev (vtiws_*), and revis last (under sdpa
 # it reproduced Base on all 1000 full-THRONE images). 100-image units, methods interleaved per unit.
 # The old Qwen AMBER Base (outputs/amber-20261030) is not used: 248/1004 rows, 37 of them with ' addCriterion'.
 # Each GPU joins when its current jobs end: GPU 3 after pool500 worker p3; GPU 5 (x2) after pb_run500c.sh (whose THRONE
 # judges use GPU 5); GPU 4 (x2) after pool500 p4a/p4b and pb_bl_chain.sh; GPU 2 after vti_chair.sh. A second worker on a
 # GPU starts 150 s after the first, so its free-memory check sees the first model.
-# Then join -> score_sets.py amber_full1004 (official AMBER generative matching, paired bootstrap vs base).
+# Then join -> eval/sets.py amber_full1004 (official AMBER generative matching, paired bootstrap vs base).
 # Log: logs/amber_full.log      usage: pb_amber_bl.sh   (the PIDs below are the jobs it waits for)
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
+export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/amber_full.log; Q=$O/queues/amber_full.txt; VC=$O/logs/vti_chair.log
 alive(){ [ -n "$(ps -o pid= -p $(echo $@ | tr ' ' ,))" ]; }
 echo "=== $(date +%T) pb_amber_bl.sh start" >> $LOG
@@ -61,5 +62,5 @@ for tag in sorted({Path(f).name.rsplit('-',2)[0] for f in glob.glob(str(S/'*.jso
 PY
 export RBD2_SETS=$O/sets AMBER_REPO=$R/data/amber/repo NLTK_DATA=$L/.cache/nltk_data PYTHONDONTWRITEBYTECODE=1 RBD2_N=1004
 { echo "=== $(date +%T) amber_full1004 (paired bootstrap vs base)"
-  $L/venvs/amber/bin/python scripts/rbd2/score_sets.py amber_full1004 $O/runs/amber_full1004_all 2>&1 | grep -v 'it/s'
+  $L/venvs/amber/bin/python -m tether.eval.sets amber_full1004 $O/runs/amber_full1004_all 2>&1 | grep -v 'it/s'
   echo "=== $(date +%T) AMBER_FULL_DONE"; } >> $LOG

@@ -1,8 +1,8 @@
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
-NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=scripts:src .venv/bin/python - <<'PY' 2>/dev/null
+NLTK_DATA=/home/project-b/LJW/.cache/nltk_data PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src .venv/bin/python - <<'PY' 2>/dev/null
 import json,hashlib,tempfile,os
 from pathlib import Path
-from vlm_grounding.evaluation import _load_external_module
+from tether.eval.common import _load_external_module
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'outputs/rbd2-20261102'
 src=R/'upstream/chair/chair.py';c=json.loads((R/'data/hallucination-suite/chair-scorer-state.json').read_text())
 assert c['built_with_unmodified_constructor'] and c['scorer_sha256']==hashlib.sha256(src.read_bytes()).hexdigest()
