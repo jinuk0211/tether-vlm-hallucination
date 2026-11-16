@@ -1,7 +1,3 @@
-"""Extend the test sets to 500 images in the same order (the first 150 rows are the *_test150 rows unchanged):
-  chair_test500   the whole CHAIR test split (500), in its order
-  throne_test500  the 500 smallest COCO val2017 ids (= the first 500 rows of throne_full)
-  amber_test500   AMBER ids 1-100 then 201-600; ids 101-200 stay out (dev images come from there)"""
 import hashlib,json
 from pathlib import Path
 R=Path('/home/project-b/LJW/vlm-grounding-steering');S=R/'outputs/rbd2-20261102/sets'

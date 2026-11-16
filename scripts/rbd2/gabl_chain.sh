@@ -1,14 +1,4 @@
 #!/bin/bash
-# Gemma 4 E4B CHAIR ablation of the RBD row s24a1bl1p05 (design in experiments/chair_ablation_gemma.py; Qwen2.5 version: abl_chain.sh).
-# Waits for HAT + ALOHa (HAT_GPU3_DONE in logs/hat_gpu3.log) and the Qwen3 baselines (file gabl_qwen3_done). No process or
-# memory check decides the start: a GPU that looks free is not necessarily free. `touch outputs/rbd2-20261102/gabl_go` starts it at once.
-# HAT's main pid gone without that line counts as an abnormal end: logged, not counted as done, the chain keeps waiting.
-#  0 at scheduling: experiments/chair_ablation_gemma.py check (reused rows complete, settings as they should be), so a wrong path shows now and not after the wait
-#  1 the full setting on rows 0-5 vs the stored full row; stops here if none of the 5 is identical
-#  2 workers on GPUs 2, 3, 4 x2, 5 x2, memory-gated (vdd4_pool.sh, Gemma gate as in vdd4_chain.sh)
-#  3 CHAIR scorer of the paper table: vs vdd Base and vs the full row; LaTeX in logs/gabl_chair_table.tex
-# Restart after a kill: rm -r claims_vdd4/gabl_* (finished units are kept; a unit with partial rows resumes).
-# TMPDIR and XDG_CACHE_HOME under LJW; CPU steps at nice 10 with 8 threads. Log: logs/gabl_chair.log, GABL_DONE / GABL_STOPPED.
 L=${GABL_L:-/home/project-b/LJW}; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gabl_chair.log; PY=.venv/bin/python; MF=21257; HP=${HAT_MAIN_PID:-1258987}; WARNED=

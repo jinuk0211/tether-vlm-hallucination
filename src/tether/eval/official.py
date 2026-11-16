@@ -1,6 +1,3 @@
-"""Official POPE and CHAIR scoring helpers: RUCAIBox/POPE answer parsing and metrics, a check against the
-upstream evaluate.py, per-image matrices and image-cluster bootstrap intervals.
-"""
 import ast
 import collections
 import contextlib
@@ -38,7 +35,6 @@ def write_jsonl(path, rows):
 
 
 def official_choice(text):
-    # Exact RUCAIBox/POPE evaluate.py algorithm, including its literal-space split.
     words = text.split('.')[0].replace(',', '').split(' ')
     return 'no' if any(word in words for word in ('No', 'not', 'no')) else 'yes'
 
@@ -47,7 +43,6 @@ def pope_metrics(rows, parser=official_choice):
     counts = collections.Counter((parser(r['prediction']), r['label']) for r in rows)
     tp, tn = counts[('yes', 'yes')], counts[('no', 'no')]
     fp = counts[('yes', 'no')]
-    # An invalid answer to a positive question is a miss in strict sensitivity.
     fn = sum(r['label'] == 'yes' for r in rows) - tp
     precision = tp / (tp + fp) if tp + fp else None
     recall = tp / (tp + fn) if tp + fn else None

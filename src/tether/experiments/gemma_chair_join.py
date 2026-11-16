@@ -1,5 +1,3 @@
-"""Join the Gemma CHAIR test units (runs/gchair_test500/TAG-B-E.jsonl, 50-image units) into runs/gchair_test500_all/TAG-0-500.jsonl
-in chair_test500 order. usage: python -m tether.experiments.gemma_chair_join TAG..."""
 import json,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');S=O/'runs/gchair_test500';D=O/'runs/gchair_test500_all'

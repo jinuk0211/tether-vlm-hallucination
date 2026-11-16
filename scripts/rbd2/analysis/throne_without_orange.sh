@@ -25,7 +25,7 @@ def mats(d):
     return P,C,G
 def f05(p,r):
     with np.errstate(invalid='ignore',divide='ignore'):return 1.25*p*r/(0.25*p+r)
-def micro(W,P,C,G):   # per-image official micro F0.5 (NaN skipped), image weights W
+def micro(W,P,C,G):
     np_,nc,ng=P.sum(1),C.sum(1),G.sum(1);ok=(np_>0)&(ng>0);p=np.where(ok,nc/np.maximum(np_,1),0.);r=np.where(ok,nc/np.maximum(ng,1),0.)
     f=f05(p,r);m=~np.isnan(f);return {'P':(W@p)/W.sum(1),'R':(W@r)/W.sum(1),'F0.5':(W[:,m]@f[m])/W[:,m].sum(1)}
 def cls(W,P,C,G):

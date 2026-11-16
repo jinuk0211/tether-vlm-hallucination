@@ -1,6 +1,4 @@
 #!/bin/bash
-# Qwen3-VL GrAInS (before HAT+ALOHa). Vector as for the earlier models (baselines/grains_qwen3.py, FP32, GPU 4), then 2 workers each on GPUs 4 and 5.
-# Rows: runs/qchair_bl2. Log: logs/qbl.log. QBL_GRAINS_FAILED if the extraction stops, QBL_DONE at the end. REVIS is not here (qbl_revis.sh).
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 LOG=$O/logs/qbl.log; Q=$O/queues/qbl.txt
 uuid(){ nvidia-smi --id=$1 --query-gpu=uuid --format=csv,noheader; }
@@ -29,7 +27,6 @@ pool(){ G=$1; W=$2
       [ $OPEN -eq 0 ] && break
       sleep 30
     done; echo "$(date +%T) $W POOL_DONE" >> $O/logs/qblpool.log ) & }
-# the second worker on a GPU starts 150 s later, so the free-memory check sees the first model
 pool 4 q4a; pool 5 q5a; sleep 150; pool 4 q4b; pool 5 q5b
 wait
 echo "=== $(date +%T) decoded" >> $LOG

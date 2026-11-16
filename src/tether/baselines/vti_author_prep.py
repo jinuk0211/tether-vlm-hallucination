@@ -1,4 +1,3 @@
-"""Fetch the original VTI demonstration images and write the new subrun protocol."""
 import concurrent.futures,hashlib,json,time,urllib.request
 from pathlib import Path
 from PIL import Image

@@ -1,9 +1,4 @@
 #!/bin/bash
-# Scorer environments for round 2 on project-b, all under /home/project-b/LJW (shared .venv untouched).
-#   venvs/amber   spaCy 3.8 + en_core_web_lg 3.8.0 + nltk   (AMBER official inference.py)
-#   venvs/throne  THRONE requirements pins (transformers 4.37.2 ...) + torch 2.8.0+cu128 from the uv cache
-#   bench/THRONE  amazon-science/THRONE @45badbb7; bench/models/flan-t5-{base,large,xl} at the pinned revisions
-#   bench/coco2017/annotations/instances_val2017.json
 set -euo pipefail
 L=/home/project-b/LJW; B=$L/bench; V=$L/venvs; UV=$L/.local/bin/uv
 export UV_CACHE_DIR=$L/.cache/uv PIP_CACHE_DIR=$L/.cache/pip HF_HOME=$L/.cache/huggingface UV_PYTHON_INSTALL_DIR=$L/.local/share/uv/python UV_HTTP_TIMEOUT=600

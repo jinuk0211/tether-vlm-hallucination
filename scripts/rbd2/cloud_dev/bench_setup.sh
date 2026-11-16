@@ -1,9 +1,4 @@
 #!/bin/bash
-# Object HalBench + THRONE scoring setup (CPU/network only; the GPUs keep decoding).
-#   judges    google/flan-t5-{base,large,xl} at pinned revisions (THRONE one-click.sh evaluators)
-#   COCO 2017 instances_val2017.json (THRONE coco), spaCy en_core_web_trf 3.7.2 (Object HalBench README)
-#   venvs     --system-site-packages, so torch comes from /venv/main; only the pinned scorer packages shadow it
-#             throne: transformers 4.37.2 (THRONE requirements.txt);  objhal: spacy 3.7 + nltk 3.8.1 (RLHF-V README)
 set -e
 B=/workspace/bench; P=/workspace/rbd_pilot; PY=/venv/main/bin/python
 mkdir -p $B/models $B/coco2017/annotations $B/coco2017/val2017 $B/pkgs

@@ -1,11 +1,3 @@
-"""Manifests for the added benchmarks (same row format as the other sets; max_new_tokens 512 everywhere):
-  objhal_test60  Object HalBench (RLHF-V eval/data/obj_halbench_300_with_image.jsonl, commit 3863e39d), first 60 rows,
-                 each with its own prompt; images decoded from the embedded base64 to files
-  amber_dev60L / amber_test60L  AMBER dev/test rows with the CHAIR prompt "Please describe this image in detail."
-                 (not the AMBER protocol: a long-caption analysis variant)
-  throne_test60  THRONE COCO: first 60 of the sorted val2017 image ids (as throne_generate.py orders them), prompt
-                 "Describe this image in detail." (throne_generate.GENERATION_PROMPT); images downloaded and decode-checked
-usage: python -m tether.experiments.cloud_dev.benchmarks objhal | amberL | throne"""
 import base64,concurrent.futures as cf,hashlib,io,json,sys,time,urllib.request
 from pathlib import Path
 from PIL import Image

@@ -1,13 +1,4 @@
 #!/bin/bash
-# Worker for gemma_chain.sh. Queues in priority order: dev -> ours on test (written after the dev pick) -> baselines.
-# Lines "KIND SET OUTDIR TAG START END args..." -> runs/OUTDIR/TAG-START-END.jsonl (resumable); KIND vdd = decoding/vdd.py
-# --model gemma --attn eager, KIND bench = baselines/bench_gemma.py --method TAG. A unit is claimed with mkdir in claims_gemma, only
-# when the GPU has MIN_FREE MiB free (other users share these GPUs) twice, 10-30 s apart, so a model another job has just
-# started loading is seen. A failed unit drops its claim; after 2 failures it is skipped, except CUDA out-of-memory
-# failures (another job took the memory: the Gemma CHAIR workers share GPUs 3 and 5), which are not
-# counted and back off 1-3 min. The worker waits while units are still open (running elsewhere, or the ours queue not yet
-# written) and exits when every unit is complete or failed twice.
-# usage: gemma_pool.sh GPU_INDEX WORKER_NAME [MIN_FREE_MIB]
 G=$1; W=$2; MF=${3:-20000}
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_gemma; mkdir -p $L $C
 QD=$O/queues/gemma_dev.txt; QO=$O/queues/gemma_ours.txt; QB=$O/queues/gemma_bl.txt
@@ -17,7 +8,6 @@ export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hu
 cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 free(){ nvidia-smi --id=$G --query-gpu=memory.free --format=csv,noheader,nounits; }
-# run the first claimable unit of queue $1 (return 0), or count its open units into OPEN (return 1)
 run_one(){
   while read -r K D OD T S E A; do
     [ -z "$K" ] && continue; case $K in \#*) continue;; esac

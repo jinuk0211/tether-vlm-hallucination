@@ -1,10 +1,4 @@
 #!/bin/bash
-# Worker for gchair_chain.sh (gemma_pool.sh with the Gemma CHAIR queues). Queues in priority order: dev -> ours on test
-# (written after the dev pick) -> vdd Base on test. Lines "SET OUTDIR TAG START END args..." -> decoding/vdd.py --model gemma
-# --attn eager into runs/OUTDIR/TAG-START-END.jsonl (resumable). A unit is claimed with mkdir in claims_gchair, only when the
-# GPU has MIN_FREE MiB free (other users share these GPUs). A failed unit drops its claim; after 2 failures it is skipped.
-# The worker waits while units are still open and exits when every unit is complete or failed twice.
-# usage: gchair_pool.sh GPU_INDEX WORKER_NAME MIN_FREE_MIB
 G=$1; W=$2; MF=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_gchair; mkdir -p $L $C
 QD=$O/queues/gchair_dev.txt; QO=$O/queues/gchair_ours.txt; QB=$O/queues/gchair_base.txt; PF=$O/runs/gchair_dev60/PICK_FAILED

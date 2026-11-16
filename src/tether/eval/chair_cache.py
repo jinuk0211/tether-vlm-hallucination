@@ -1,7 +1,3 @@
-"""Build the unmodified CHAIR scorer once (it tokenizes every COCO 2014 caption: >10 min) and cache its state for the
-first 100 CHAIR test images, in the format data/chair_dev.py / eval/dev.py use. Then check that the cached scorer
-reproduces the stored official scores of the A5000 Base on the first 50 test images (CHAIR_s 0.28, CHAIR_i 0.12069,
-recall 0.55346, from score-pilot-chair50/score.json)."""
 import hashlib,json
 from pathlib import Path
 from tether.eval.common import _load_external_module

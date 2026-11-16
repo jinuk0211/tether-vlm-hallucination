@@ -1,7 +1,3 @@
-"""Command-line entry points. Only the model commands load checkpoints."""
-
-from __future__ import annotations
-
 import argparse
 from collections import defaultdict
 import hashlib
@@ -12,14 +8,13 @@ import platform
 import random
 import sys
 import time
-from typing import Any
 
 
 METHODS = ("base", "ephs", "revis", "rudder", "grains", "vti")
 SPLITS = ("discovery", "fit", "tune", "test")
 
 
-def _sha(path: str | Path) -> str:
+def _sha(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
@@ -27,30 +22,30 @@ def _sha(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def _json(path: str | Path) -> dict:
+def _json(path):
     value = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     if not isinstance(value, dict):
         raise ValueError(f"{path}: expected a JSON object.")
     return value
 
 
-def _write_json(path: str | Path, value: Any) -> None:
+def _write_json(path, value):
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
                       encoding="utf-8")
 
 
-def _reserve(paths: list[str | Path], overwrite: bool) -> None:
+def _reserve(paths, overwrite):
     for path in paths:
         if Path(path).exists() and not overwrite:
             raise FileExistsError(f"Refusing to overwrite {path}; pass --overwrite explicitly.")
 
 
-def _versions() -> dict:
+def _versions():
     result = {"python": platform.python_version(), "platform": platform.platform()}
     for name in ("torch", "torchvision", "transformers", "numpy", "Pillow",
-                 "vlm-grounding-steering"):
+                 "tether"):
         try:
             result[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
@@ -58,19 +53,19 @@ def _versions() -> dict:
     return result
 
 
-def _load_adapter(model_config: dict):
+def _load_adapter(model_config):
     from tether.models.backend import load_adapter
     return load_adapter(model_config)
 
 
-def _config(path: str) -> dict:
+def _config(path):
     value = _json(path)
     if not isinstance(value.get("model"), dict) or not value["model"].get("checkpoint"):
         raise ValueError("Config must contain model.checkpoint.")
     return value
 
 
-def _seed(config: dict) -> None:
+def _seed(config):
     import torch
     seed = int(config.get("generation", {}).get("seed", 42))
     random.seed(seed)
@@ -79,23 +74,23 @@ def _seed(config: dict) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _synchronize(adapter: Any) -> None:
+def _synchronize(adapter):
     device = getattr(adapter, "device", None)
     if str(device).startswith("cuda"):
         import torch
         torch.cuda.synchronize(device)
 
 
-def _model_signature(config: dict) -> dict:
+def _model_signature(config):
     return {key: value for key, value in config.items()
             if key not in ("device", "local_files_only")}
 
 
-def _revision(adapter: Any) -> str | None:
+def _revision(adapter):
     return getattr(adapter.model.config, "_commit_hash", None)
 
 
-def _evaluation_protocol(adapter: Any, config: dict) -> tuple[dict, str]:
+def _evaluation_protocol(adapter, config):
     protocol = {
         "model": _model_signature(config["model"]),
         "checkpoint_revision": _revision(adapter),
@@ -109,8 +104,7 @@ def _evaluation_protocol(adapter: Any, config: dict) -> tuple[dict, str]:
     return protocol, fingerprint
 
 
-def _provenance(adapter: Any, config: dict, manifests: list[str],
-                records: list[dict], parent: dict | None = None) -> dict:
+def _provenance(adapter, config, manifests, records, parent=None):
     groups = {str(record["group_id"]) for record in records}
     sources = [{"path": str(Path(path).resolve()), "sha256": _sha(path)}
                for path in manifests]
@@ -128,8 +122,7 @@ def _provenance(adapter: Any, config: dict, manifests: list[str],
     }
 
 
-def _validate_artifact(artifact: dict, model_config: dict,
-                       records: list[dict] | None = None, adapter: Any = None) -> None:
+def _validate_artifact(artifact, model_config, records=None, adapter=None):
     provenance = artifact.get("_provenance")
     if not isinstance(provenance, dict) or "model_config" not in provenance:
         raise ValueError("Artifact has no model/data provenance; recreate it with this CLI.")
@@ -146,8 +139,7 @@ def _validate_artifact(artifact: dict, model_config: dict,
             raise ValueError("Resolved checkpoint revision differs from the artifact.")
 
 
-def _select(records: list[dict], split: str, limit: int | None,
-            *, task: str | None = None, preferences: bool = False) -> list[dict]:
+def _select(records, split, limit, *, task=None, preferences=False):
     selected = [record for record in records if record["split"] == split
                 and (task is None or record["task"] == task)
                 and (not preferences or ("chosen" in record and "rejected" in record))]
@@ -162,7 +154,7 @@ def _select(records: list[dict], split: str, limit: int | None,
     return selected
 
 
-def _read_artifact(path: str, method: str) -> dict:
+def _read_artifact(path, method):
     if method == "ephs":
         return _json(path)
     import torch
@@ -172,7 +164,7 @@ def _read_artifact(path: str, method: str) -> dict:
     return value
 
 
-def _save_artifact(path: str, artifact: dict, *, tensor: bool = False) -> None:
+def _save_artifact(path, artifact, *, tensor=False):
     if tensor:
         import torch
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -181,7 +173,7 @@ def _save_artifact(path: str, artifact: dict, *, tensor: bool = False) -> None:
         _write_json(path, artifact)
 
 
-def _doctor(_args) -> dict:
+def _doctor(_args):
     result = _versions()
     try:
         import torch
@@ -195,7 +187,7 @@ def _doctor(_args) -> dict:
     return result
 
 
-def _prepare(args) -> dict:
+def _prepare(args):
     from tether.data import manifests as data
     _reserve([args.output], args.overwrite)
     if args.command == "prepare-pope":
@@ -223,21 +215,21 @@ def _prepare(args) -> dict:
     return result
 
 
-def _verify(args) -> dict:
+def _verify(args):
     from tether.data.manifests import validate_disjoint
     result = validate_disjoint(args.manifests)
     print(json.dumps({"split_counts": result, "group_isolation": "passed"}, indent=2))
     return result
 
 
-def _fetch(args) -> dict:
+def _fetch(args):
     from tether.upstream import fetch_sources
     result = fetch_sources(args.names, args.output_dir)
     print(json.dumps(result, indent=2))
     return result
 
 
-def _extract(args) -> dict:
+def _extract(args):
     from tether.baselines.local import extract_baseline
     from tether.data.manifests import read_manifest, validate_disjoint
     _reserve([args.output], args.overwrite)
@@ -267,7 +259,7 @@ def _extract(args) -> dict:
     return result
 
 
-def _discover(args) -> dict:
+def _discover(args):
     from tether.data.manifests import read_manifest
     from tether.ephs import discover
     _reserve([args.output], args.overwrite)
@@ -283,7 +275,7 @@ def _discover(args) -> dict:
     return result
 
 
-def _fit(args) -> dict:
+def _fit(args):
     from tether.data.manifests import read_manifest
     from tether.ephs import fit
     _reserve([args.output], args.overwrite)
@@ -306,7 +298,7 @@ def _fit(args) -> dict:
     return result
 
 
-def _run(args) -> dict:
+def _run(args):
     from tether.baselines.local import build_baseline
     from tether.data.manifests import read_manifest
     from tether.ephs import steer
@@ -374,7 +366,7 @@ def _run(args) -> dict:
     return result
 
 
-def _prediction_rows(path: str) -> list[dict]:
+def _prediction_rows(path):
     rows = []
     with Path(path).open(encoding="utf-8-sig") as stream:
         for line in stream:
@@ -396,7 +388,7 @@ def _prediction_rows(path: str) -> list[dict]:
     return rows
 
 
-def _export_mmhal(args) -> dict:
+def _export_mmhal(args):
     from tether.eval.common import mmhal_responses
 
     _reserve([args.output], args.overwrite)
@@ -407,7 +399,7 @@ def _export_mmhal(args) -> dict:
     return result
 
 
-def _compare(args) -> dict:
+def _compare(args):
     from tether.eval.common import attach_mmhal_scores, compare_methods, run_official_causal, run_official_chair, write_comparison_csv
     output_dir = Path(args.output_dir)
     report_path, csv_path = output_dir / "comparison.json", output_dir / "metrics.csv"
@@ -494,8 +486,8 @@ def _compare(args) -> dict:
     return report
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="tether", description=__doc__)
+def build_parser():
+    parser = argparse.ArgumentParser(prog="tether")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("doctor", help="Inspect dependencies and CUDA without loading a model.").set_defaults(func=_doctor)
     for name in ("pope", "causal", "mme", "mmhal"):
@@ -570,7 +562,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

@@ -1,8 +1,3 @@
-"""Qwen3-VL-8B CHAIR rows for the official REVIS and GrAInS, same preparation, generation and row format as baselines/bench_qwen3.py (adapter.prepare, adapter.generate, seed per image).
-  revis_official  upstream/Revis MADRSteeringHook_visual_only, unmodified, with outputs/qwen3-vl8b/revis-official (layer, tau from calibration; alpha 1.6, gamma 1), BF16 sdpa
-  grains_clone    author GrAInS through baselines.author_bridge.grains_context + grains-author.pt (layer 27, alpha 10), FP16 weights, eager with FP32 attention scores as for Qwen2.5
-  base            no intervention, BF16 sdpa
-usage: python -m tether.baselines.bench_qwen3_official --method M --attn A --set SET --output DIR --start S --end E"""
 import argparse,contextlib,hashlib,importlib.util,json,os,time,traceback
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,7 +9,6 @@ def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 @contextmanager
 def stable_fp16_attention(diag):
-    """baselines/fp16_attention.py for the Qwen3-VL module"""
     import transformers.models.qwen3_vl.modeling_qwen3_vl as q
     original=q.eager_attention_forward;diag['calls']=0
     def forward(module,query,key,value,attention_mask,scaling,dropout=0.0,**kw):

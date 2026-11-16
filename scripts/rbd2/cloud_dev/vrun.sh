@@ -1,5 +1,4 @@
 #!/bin/bash
-# usage: vrun.sh GPU DATA OUTDIR TAG END [decoding.vdd args...]
 G=$1; D=$2; O=$3; T=$4; E=$5; shift 5
 R=/home/project-b/LJW/vlm-grounding-steering
 export HF_HOME=/workspace/.hf_home PYTHONPATH=/workspace/rbd_pilot:$R/src CUDA_VISIBLE_DEVICES=$G

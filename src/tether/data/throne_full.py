@@ -1,6 +1,3 @@
-"""Full THRONE COCO set: every COCO val2017 image (5000; THRONE's COCO evaluation uses all images of instances_val2017
-when no subset is given, throne_generate.py), ascending id, prompt and max_new_tokens as throne_test150. Images from the
-official val2017.zip under bench/coco2017/val2017; the first 150 rows are throne_test150 (same ids, same sha256)."""
 import hashlib,json
 from pathlib import Path
 B=Path('/home/project-b/LJW/bench/coco2017');S=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102/sets')

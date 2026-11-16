@@ -1,4 +1,3 @@
-"""Fetch pinned official evaluation inputs; never download COCO image archives."""
 import concurrent.futures as cf
 import hashlib
 import json

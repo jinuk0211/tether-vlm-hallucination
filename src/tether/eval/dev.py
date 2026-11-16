@@ -1,4 +1,3 @@
-"""Score caption runs on the train2014 dev split with the unmodified CHAIR scorer (dev ground truth)."""
 import glob,json,re,sys
 from pathlib import Path
 import numpy as np

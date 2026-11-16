@@ -1,14 +1,3 @@
-"""Queues, joins and the pick of the colour-fixed-V_obj THRONE run (vdd4_chain.sh; MODEL = qwen | gemma).
-The setting is chosen on the first 200 test images (throne_full1000 rows 0-199 = sets/throne_t200),
-not on a separate dev split, and only then run on the other 800; the paper states this. Rows 0-199 of the pick are reused.
-  sets                     sets/throne_t200.jsonl = throne_full1000 rows 0-199
-  queue_sel MODEL          queues/v4_<model>_sel.txt: the 4 colour-fixed candidates x 4 chunks of 50 on rows 0-199
-  join MODEL sel TAG...    runs/<model>_cf_t200_all/<tag>-0-200.jsonl
-  join MODEL test TAG      runs/<model>_cf_test_all/<tag>-0-1000.jsonl = rows 0-199 (selection run) + 200-999 (test run)
-  pick MODEL SCORE_TXT     rule fixed before any result: a cf_* candidate is eligible only if its F0.5_CLS on the 200 beats
-                           BOTH bench Base and the old-V_obj config (the earlier test config); none eligible -> 'none', no
-                           test. Among eligible ones: highest F0.5_CLS; within 0.5 of it -> highest F0.5_ALL.
-                           Writes runs/<model>_cf_pick.txt and queues/v4_<model>_test.txt (16 chunks of 50, rows 200-999)."""
 import json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102')
@@ -43,7 +32,7 @@ elif cmd=='join':
         print('joined',stage,t)
 elif cmd=='pick':
     rx=re.compile(r'^(\S+)\s+\|\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+\|\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+\|',re.M)
-    rows={m[1]:(float(m[9]),float(m[5])) for m in rx.finditer(Path(sys.argv[3]).read_text())}   # tag -> (F0.5_CLS, F0.5_ALL)
+    rows={m[1]:(float(m[9]),float(m[5])) for m in rx.finditer(Path(sys.argv[3]).read_text())}
     assert {'base','old_a1bl2p1',*CAND}<=set(rows),rows
     bcls=rows['base'][0];ocls=rows['old_a1bl2p1'][0];cand={t:rows[t] for t in CAND}
     elig={t:v for t,v in cand.items() if v[0]>bcls and v[0]>ocls}

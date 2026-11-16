@@ -1,10 +1,4 @@
 #!/bin/bash
-# THRONE on the other 4,000 of its 5,000 COCO val2017 images, every row of tab:throne_full (7 per backbone) and the evaluation,
-# on GPUs 0 and 5 only (both A6000). experiments/throne_5k.py: set throne_r4000 (rows 1000-4999 of throne_full) and the queues; then per GPU two decode slots
-# (repro units first: 2 stored A6000 rows per method; then the block-major decode queue; then any judge) and one light judge slot (flan-t5 base and
-# large on finished blocks while the decoders run). When the repro units are done, experiments/throne_5k.py repro compares them with the stored captions; a
-# difference stops every worker (t4k/STOP) after its current unit. At the end: join -> eval/throne_5k.py -> logs/t4k_table.txt, logs/t4k_score.json.
-# Log logs/t4k.log (T5K_DONE / T5K_STOPPED).
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/t4k.log; PY=.venv/bin/python; TPY=$L/venvs/throne/bin/python
@@ -23,7 +17,6 @@ PIDS=()
 for spec in "0 d0a" "5 d5a" "0 d0b" "5 d5b"; do set -- $spec; dslot $1 $2 & PIDS+=($!); sleep 45; done
 for spec in "0 j0" "5 j5"; do set -- $spec; bash scripts/rbd2/t4k_jpool.sh $1 $2 light & PIDS+=($!); done
 log "slots: decode d0a d0b (GPU 0), d5a d5b (GPU 5); light judges j0, j5; pids ${PIDS[*]}"
-# repro: wait until every repro unit is complete or failed twice
 until $CPU $PY - <<'EOF'
 import sys
 from pathlib import Path

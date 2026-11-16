@@ -1,12 +1,4 @@
-"""Our own implementations of the baselines, written from the papers (not the authors' code).
-
-Hooks are removed after each call; model weights are never modified.
-"""
-
-from __future__ import annotations
-
 from contextlib import ExitStack, contextmanager
-from typing import Any, Iterator
 
 from numpy.polynomial.legendre import leggauss
 import torch
@@ -23,14 +15,14 @@ PAPERS = {
 EPS = 1e-8
 
 
-def _tensor(output: Any) -> Tensor:
+def _tensor(output):
     value = output[0] if isinstance(output, (tuple, list)) else output
     if not isinstance(value, Tensor):
         raise TypeError("A hook expected a tensor or a tuple whose first item is a tensor.")
     return value
 
 
-def _replace(output: Any, value: Tensor) -> Any:
+def _replace(output, value):
     if isinstance(output, tuple):
         return (value, *output[1:])
     if isinstance(output, list):
@@ -38,36 +30,30 @@ def _replace(output: Any, value: Tensor) -> Any:
     return value
 
 
-def _input(args: tuple, kwargs: dict) -> Tensor:
+def _input(args, kwargs):
     value = args[0] if args else kwargs.get("hidden_states")
     if not isinstance(value, Tensor):
         raise TypeError("Decoder block must receive hidden_states as first argument or keyword.")
     return value
 
 
-def _replace_input(args: tuple, kwargs: dict, value: Tensor) -> tuple:
+def _replace_input(args, kwargs, value):
     if args:
         return (value, *args[1:]), kwargs
     return args, {**kwargs, "hidden_states": value}
 
 
-def unit(vector: Tensor) -> Tensor:
+def unit(vector):
     return vector / vector.norm(dim=-1, keepdim=True).clamp_min(EPS)
 
 
-def orthogonalize(visual: Tensor, prior: Tensor) -> Tensor:
-    """REVIS Eq. (3), retaining the purified vector's original scale."""
+def orthogonalize(visual, prior):
     projection = (visual * prior).sum(-1, keepdim=True)
     projection = projection / prior.square().sum(-1, keepdim=True).clamp_min(EPS)
     return visual - projection * prior
 
 
-def principal_direction(samples: Tensor) -> Tensor:
-    """Centered PC1 along the sample axis, with deterministic mean-delta sign.
-
-    Remaining axes may be [hidden] or [vision_position, hidden]. Degenerate
-    constant nonzero samples use their mean; all-zero samples give zero.
-    """
+def principal_direction(samples):
     if samples.ndim < 2 or samples.shape[0] < 1:
         raise ValueError("PCA needs at least one sample and a feature dimension.")
     samples = samples.detach().float().cpu()
@@ -82,8 +68,7 @@ def principal_direction(samples: Tensor) -> Tensor:
     return direction * sign
 
 
-def norm_preserving_add(hidden: Tensor, vector: Tensor, alpha: float) -> Tensor:
-    """GrAInS Eq. (5), preserving zero vectors and avoiding division by zero."""
+def norm_preserving_add(hidden, vector, alpha):
     vector = vector.to(hidden)
     candidate = hidden + alpha * vector
     old_norm = hidden.float().norm(dim=-1, keepdim=True)
@@ -92,9 +77,7 @@ def norm_preserving_add(hidden: Tensor, vector: Tensor, alpha: float) -> Tensor:
     return torch.where(new_norm > EPS, scaled, hidden)
 
 
-def beta_gate(similarity: Tensor, k: float = 5.0, c: float = 1.0,
-              minimum: float = 0.05, maximum: float = 1.0) -> Tensor:
-    """RUDDER Eq. (3): higher alignment means stronger reinforcement."""
+def beta_gate(similarity, k=5.0, c=1.0, minimum=0.05, maximum=1.0):
     if k < 0 or not 0 <= minimum <= maximum <= 1:
         raise ValueError("Gate requires k >= 0 and 0 <= minimum <= maximum <= 1.")
     positive = F.softplus(k * similarity.float() + c)
@@ -102,18 +85,18 @@ def beta_gate(similarity: Tensor, k: float = 5.0, c: float = 1.0,
     return (positive / (positive + negative).clamp_min(EPS)).clamp(minimum, maximum)
 
 
-def revis_update(hidden: Tensor, vector: Tensor, alpha: float, threshold: float) -> Tensor:
+def revis_update(hidden, vector, alpha, threshold):
     risk = -F.cosine_similarity(hidden.float(), vector.to(hidden).float(), dim=-1)
     return hidden + alpha * (risk > threshold).unsqueeze(-1).to(hidden) * vector.to(hidden)
 
 
-def _check_batch(hidden: Tensor) -> None:
+def _check_batch(hidden):
     if hidden.ndim != 3 or hidden.shape[0] != 1:
         raise ValueError("This initial implementation requires batch_size=1 and [1, tokens, hidden].")
 
 
 @contextmanager
-def _hook(module: Any, callback: Any, *, pre: bool = False) -> Iterator[None]:
+def _hook(module, callback, *, pre=False):
     handle = (module.register_forward_pre_hook(callback, with_kwargs=True)
               if pre else module.register_forward_hook(callback))
     try:
@@ -122,7 +105,7 @@ def _hook(module: Any, callback: Any, *, pre: bool = False) -> Iterator[None]:
         handle.remove()
 
 
-def _indices(config: dict, key: str, count: int) -> list[int]:
+def _indices(config, key, count):
     values = config.get(key)
     indices = list(range(count)) if values is None else [int(x) for x in values]
     if not indices or len(set(indices)) != len(indices):
@@ -132,9 +115,8 @@ def _indices(config: dict, key: str, count: int) -> list[int]:
     return indices
 
 
-def _capture(adapter: Any, batch: dict, layers: list[int], *, vision: bool = False,
-             input_transform: Any = None, keep_positions: bool = False) -> dict[int, Tensor]:
-    result: dict[int, Tensor] = {}
+def _capture(adapter, batch, layers, *, vision=False, input_transform=None, keep_positions=False):
+    result = {}
     modules = adapter.vision_layers if vision else adapter.layers
     with ExitStack() as stack:
         if input_transform is not None:
@@ -164,7 +146,7 @@ def _capture(adapter: Any, batch: dict, layers: list[int], *, vision: bool = Fal
     return result
 
 
-def _metadata(name: str, records: list[dict], config: dict) -> dict:
+def _metadata(name, records, config):
     return {
         "name": name,
         "implementation": "paper-derived-local-adaptation",
@@ -177,7 +159,7 @@ def _metadata(name: str, records: list[dict], config: dict) -> dict:
     }
 
 
-def _require_preferences(records: list[dict]) -> None:
+def _require_preferences(records):
     for record in records:
         for key in ("image", "prompt", "chosen", "rejected"):
             if not isinstance(record.get(key), str) or not record[key]:
@@ -186,7 +168,7 @@ def _require_preferences(records: list[dict]) -> None:
             raise ValueError("Chosen and rejected responses must differ.")
 
 
-def _revis_extract(adapter: Any, records: list[dict], config: dict) -> dict:
+def _revis_extract(adapter, records, config):
     _require_preferences(records)
     extraction = [r for r in records if r.get("role") != "calibration"]
     calibration = [r for r in records if r.get("role") == "calibration"]
@@ -195,8 +177,8 @@ def _revis_extract(adapter: Any, records: list[dict], config: dict) -> dict:
     if {r["image"] for r in extraction} & {r["image"] for r in calibration}:
         raise ValueError("REVIS vector extraction and calibration images must be disjoint.")
     layers = _indices(config, "layers", len(adapter.layers))
-    raw: dict[int, list[Tensor]] = {i: [] for i in layers}
-    priors: dict[int, list[Tensor]] = {i: [] for i in layers}
+    raw = {i: [] for i in layers}
+    priors = {i: [] for i in layers}
     for record in extraction:
         conditions = [
             (record["image"], record["chosen"]),
@@ -250,19 +232,16 @@ def _revis_extract(adapter: Any, records: list[dict], config: dict) -> dict:
             "calibration": "held-out-records" if calibration else "externally-specified"}
 
 
-def _masked_pixels(batch: dict, generator: torch.Generator, fraction: float,
-                   patch_size: int) -> dict:
+def _masked_pixels(batch, generator, fraction, patch_size):
     if "pixel_values" not in batch:
         raise ValueError("VTI requires adapter.prepare to return pixel_values.")
     pixels = batch["pixel_values"]
     masked = pixels.clone()
     if pixels.ndim == 2:
-        # Qwen processor represents each spatial/temporal patch as a row.
         count = pixels.shape[0]
         chosen = torch.randperm(count, generator=generator)[:max(1, round(count * fraction))]
         masked[chosen.to(masked.device)] = 0
     elif pixels.ndim == 3 and pixels.shape[0] == 1:
-        # Gemma 4 keeps image patches in a batch dimension.
         valid = (batch["image_position_ids"][0] != -1).all(dim=-1).nonzero().flatten().cpu()
         count = len(valid)
         chosen = valid[torch.randperm(count, generator=generator)[:max(1, round(count * fraction))]]
@@ -280,7 +259,7 @@ def _masked_pixels(batch: dict, generator: torch.Generator, fraction: float,
     return {**batch, "pixel_values": masked}
 
 
-def _vti_extract(adapter: Any, records: list[dict], config: dict) -> dict:
+def _vti_extract(adapter, records, config):
     _require_preferences(records)
     text_layers = _indices(config, "layers", len(adapter.layers))
     vision_layers = _indices(config, "vision_layers", len(adapter.vision_layers))
@@ -320,7 +299,7 @@ def _vti_extract(adapter: Any, records: list[dict], config: dict) -> dict:
             "vision_pooling": pooling, "pixel_mask_baseline": "zero-in-processor-output-space"}
 
 
-def _fused_embeddings(adapter: Any, batch: dict) -> Tensor:
+def _fused_embeddings(adapter, batch):
     captured = []
     def capture(_module, args, kwargs):
         captured.append(_input(args, kwargs).detach().clone())
@@ -332,8 +311,7 @@ def _fused_embeddings(adapter: Any, batch: dict) -> Tensor:
     return captured[0]
 
 
-def sequence_log_probability(logits: Tensor, labels: Tensor) -> Tensor:
-    """Sum conditional log probabilities over labeled completion tokens only."""
+def sequence_log_probability(logits, labels):
     if logits.shape[:2] != labels.shape:
         raise ValueError("Labels must align with the expanded decoder token sequence.")
     targets = labels[:, 1:]
@@ -345,7 +323,7 @@ def sequence_log_probability(logits: Tensor, labels: Tensor) -> Tensor:
     return selected.masked_select(valid).sum()
 
 
-def _prompt_length(batch: dict, embeddings: Tensor) -> int:
+def _prompt_length(batch, embeddings):
     labels = batch.get("labels")
     if labels is None or labels.shape != embeddings.shape[:2]:
         raise ValueError("GrAInS requires labels matching fused sequence; prompt labels must be -100.")
@@ -355,7 +333,7 @@ def _prompt_length(batch: dict, embeddings: Tensor) -> int:
     return int(positions[0])
 
 
-def _preference_attributions(adapter: Any, positive: dict, negative: dict, steps: int) -> Tensor:
+def _preference_attributions(adapter, positive, negative, steps):
     pos_embeddings = _fused_embeddings(adapter, positive)
     neg_embeddings = _fused_embeddings(adapter, negative)
     length = _prompt_length(positive, pos_embeddings)
@@ -365,9 +343,6 @@ def _preference_attributions(adapter: Any, positive: dict, negative: dict, steps
     if not torch.allclose(prompt, neg_embeddings[:, :length], atol=1e-5, rtol=1e-4):
         raise ValueError("Preference pair fused prompt embeddings differ.")
     accumulated = torch.zeros_like(prompt, dtype=torch.float32)
-    # Gauss-Legendre integrates the same zero-baseline path without evaluating
-    # alpha=0, where real BF16 Gemma checkpoints can have non-finite gradients.
-    # This is also Captum IntegratedGradients' default quadrature.
     nodes, weights = leggauss(steps)
     with torch.enable_grad():
         for node, weight in zip(nodes, weights):
@@ -396,7 +371,7 @@ def _preference_attributions(adapter: Any, positive: dict, negative: dict, steps
     return scores
 
 
-def _grains_extract(adapter: Any, records: list[dict], config: dict) -> dict:
+def _grains_extract(adapter, records, config):
     _require_preferences(records)
     layers = _indices(config, "layers", len(adapter.layers))
     steps = int(config.get("ig_steps", 10))
@@ -439,9 +414,7 @@ def _grains_extract(adapter: Any, records: list[dict], config: dict) -> dict:
             "objective": "sum-logp-chosen-minus-sum-logp-rejected"}
 
 
-def extract_baseline(name: str, adapter: Any, records: list[dict],
-                     config: dict | None = None) -> dict:
-    """Extract offline artifacts; requires a model, but never a GPU specifically."""
+def extract_baseline(name, adapter, records, config=None):
     name, config = name.lower(), dict(config or {})
     if name not in PAPERS:
         raise ValueError(f"Unknown baseline {name!r}; choose {list(PAPERS)}.")
@@ -470,14 +443,14 @@ def extract_baseline(name: str, adapter: Any, records: list[dict],
 
 
 @contextmanager
-def _rudder(adapter: Any, config: dict) -> Iterator[None]:
+def _rudder(adapter, config):
     layer = int(config.get("layer", len(adapter.layers) - 2))
     if not 0 <= layer < len(adapter.layers):
         raise ValueError("RUDDER layer index is out of range.")
     pooling = config.get("pooling", "norm")
     if pooling not in ("mean", "norm"):
         raise ValueError("RUDDER pooling must be 'mean' or 'norm'.")
-    state: dict[str, Any] = {"card": None}
+    state = {"card": None}
     def capture_input(_module, args, kwargs):
         hidden = _input(args, kwargs)
         _check_batch(hidden)
@@ -509,9 +482,7 @@ def _rudder(adapter: Any, config: dict) -> Iterator[None]:
 
 
 @contextmanager
-def build_baseline(name: str, adapter: Any, artifact: dict | None = None,
-                   config: dict | None = None) -> Iterator[None]:
-    """Apply one baseline for one generation call; always removes its hooks."""
+def build_baseline(name, adapter, artifact=None, config=None):
     name, config = name.lower(), dict(config or {})
     if name in ("base", "none"):
         yield

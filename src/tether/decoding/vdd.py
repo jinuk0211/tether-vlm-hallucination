@@ -1,23 +1,3 @@
-"""Visual-evidence decoding (RBD round 2): belief and steering driven by the image's own contribution, measured
-online, scheduled by the measured decay of that contribution.
-
-Each caption is decoded as a batch of two in lockstep: row 0 with the real image, row 1 with the 448x448 gray image
-of visual_decay E3 (the control behind the measured r(t)); row 1 is always fed row 0's token. Every step therefore
-gives log p_real and log p_gray, and every layer h_real and h_gray, with no extra pass over the caption.
-r(t) = decoding.common.r_curve (gray-KL reliance curve: 1 at the start of the caption, ~0.02 at 512 tokens).
-
-  steering  decode steps, output of decoder layer L:  h0 += alpha * s(t) * (h0 - h1)
-            s(t) = 1 - r(t) ('decay': put back what the caption has stopped taking from the image) | 1 ('const')
-  belief    A(o) += r(t) * (log p0_t(o) - log p1_t(o)),  o in V_obj   (visual evidence; the language prior cancels)
-            logits0(o) += lam * w(t) * clip(A(o) / sum r, -clip, clip)   for objects not yet written
-  penalty   logits0(o) -= pen * w(t)                                       for objects not yet written
-            w(t) = 1 - r(t) ('decay') | 1 ('const')
-alpha = lam = pen = 0 is Base decoding of row 0 through the same code path. Rows record every setting.
-Attention defaults to sdpa: with the repo's eager attention, bf16 Qwen2.5-VL writes ' addCriterion' into 12-18% of
-captions (also in the A5000 runs); sdpa removes it (check_glitch.py: 0/12 vs 5/12 on the first CHAIR test images).
-Row split: on Turing a bf16 matmul with 2 rows takes 4.8x a 1-row one (2.87 vs 0.60 ms for 3584x18944), so decode-step
-linears run row by row; row 0 then goes through the same kernels as batch-1 decoding.
-"""
 import argparse,json,os,time,traceback
 from pathlib import Path
 import torch
@@ -28,7 +8,7 @@ from tether.models.backend import load_adapter
 from tether.analysis.read_gap import collect as C
 from tether.decoding.common import ROOT, r_curve
 
-GRAY=Path(os.environ.get('VDD_GRAY','/workspace/rbd_pilot/gray448.png'))  # project-b: set VDD_GRAY
+GRAY=Path(os.environ.get('VDD_GRAY','/workspace/rbd_pilot/gray448.png'))
 
 _linear=F.linear
 def _rowsplit_linear(x,w,b=None):
@@ -41,18 +21,17 @@ class State:
     def __init__(self):self.t=0;self.on=False
 
 class Evidence(LogitsProcessor):
-    """belief + penalty on row 0, then row 1 gets row 0's scores so both rows take the same token"""
     def __init__(self,st,vidx,rf,a,pl):
         self.st=st;self.vidx=vidx;self.rf=rf;self.a=a;self.pl=pl
         self.A=torch.zeros(len(vidx),device=vidx.device);self.R=0.0;self.top=[]
     def w(self,t):return 1-self.rf(t) if self.a.bsched=='decay' else 1.0
     def __call__(self,input_ids,scores):
-        t=input_ids.shape[1]-self.pl;self.st.t=t+1   # steering for the next forward uses the next position
+        t=input_ids.shape[1]-self.pl;self.st.t=t+1
         a=self.a
         if a.lam or a.log_belief:
             lp=scores.float().log_softmax(-1)[:,self.vidx]
             d=lp[0]-lp[1]
-            if a.norm=='median':d=d-d.median()   # remove the shift every object gets at this step (peaked vs flat distribution)
+            if a.norm=='median':d=d-d.median()
             r=self.rf(t);self.A+=r*d;self.R+=r
         if a.lam or a.pen:
             done=torch.isin(self.vidx,input_ids[0,self.pl:]);adj=torch.zeros_like(self.A)
@@ -97,7 +76,7 @@ def main(a):
         adapter=load_adapter(config);m=adapter.model;tok=adapter.processor.tokenizer
         vobj=json.loads((ROOT/f'outputs/rbd-20261030/collect/{a.model}-vobj2.json').read_text())
         vidx=torch.tensor(vobj,device=adapter.device);rf=r_curve(a.model,a.r);st=State()
-        Steer(adapter.layers[a.layer-1],st,a,rf)   # output of decoder layer a.layer (1-based)
+        Steer(adapter.layers[a.layer-1],st,a,rf)
         update(stage='running',vobj=len(vobj))
         with rows_file.open('a') as f:
             for i,ref in enumerate(refs[len(done):],start=len(done)):

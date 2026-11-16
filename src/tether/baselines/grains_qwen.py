@@ -1,4 +1,3 @@
-"""fit50 extraction through the original GrAInS code on Qwen."""
 import argparse
 import hashlib
 import json

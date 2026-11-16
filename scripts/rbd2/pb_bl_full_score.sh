@@ -1,8 +1,4 @@
 #!/bin/bash
-# THRONE scores of Base and the four baselines on the first N images of full THRONE (any complete prefix, so it can run
-# while decoding continues): experiments/baselines_throne_join.py -> THRONE judges, methods spread round-robin over the GPU slots given
-# (one process per slot) -> eval/throne.py (paired bootstrap vs base). Output: logs/score_throne_full.log
-# usage: pb_bl_full_score.sh N [GPU_INDEX ...]      (default slots: 4 4 4 3 3)
 N=$1; shift; SLOTS=(${@:-4 4 4 3 3})
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}

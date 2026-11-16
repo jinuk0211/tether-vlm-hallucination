@@ -1,6 +1,3 @@
-"""Development split for caption experiments: first 100 images of the seeded
-COCO train2014 probe sample (disjoint from the val2014 CHAIR/POPE test images).
-CHAIR ground truth is built with the unmodified CHAIR constructor."""
 import hashlib,json
 from pathlib import Path
 from tether.eval.common import _load_external_module

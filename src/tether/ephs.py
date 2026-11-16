@@ -1,43 +1,34 @@
-"""Evidence-Preserving Head Steering (EPHS), exploratory.
-
-Discovery uses clean activation donors as an oracle diagnostic. At test time only
-the selected attention heads are rescaled, in the current input's forward pass.
-"""
-
-from __future__ import annotations
-
 from collections import defaultdict
 from contextlib import contextmanager
 import math
 import random
 from statistics import mean, median
-from typing import Any, Iterator
 
 import torch
 from torch import Tensor
 from torch.nn import functional as F
 
 
-def _positive(value: Any, name: str, *, allow_zero: bool = False) -> float:
+def _positive(value, name, *, allow_zero=False):
     result = float(value)
     if not math.isfinite(result) or result < 0 or (result == 0 and not allow_zero):
         raise ValueError(f"{name} must be finite and {'nonnegative' if allow_zero else 'positive'}")
     return result
 
 
-def _integer(value: Any, name: str, minimum: int = 1) -> int:
+def _integer(value, name, minimum=1):
     if isinstance(value, bool) or int(value) != value or int(value) < minimum:
         raise ValueError(f"{name} must be an integer >= {minimum}")
     return int(value)
 
 
-def _positions(value: Any) -> str:
+def _positions(value):
     if value not in {"last", "all"}:
         raise ValueError("positions must be 'last' or 'all'")
     return value
 
 
-def _adapter_shape(adapter: Any) -> tuple[int, int]:
+def _adapter_shape(adapter):
     count = len(adapter.attn_projections)
     heads = _integer(adapter.num_heads, "adapter.num_heads")
     if not count or count != len(adapter.layers):
@@ -45,7 +36,7 @@ def _adapter_shape(adapter: Any) -> tuple[int, int]:
     return count, heads
 
 
-def _head_view(value: Tensor, num_heads: int) -> Tensor:
+def _head_view(value, num_heads):
     if value.ndim != 3 or value.shape[0] != 1:
         raise ValueError("EPHS currently requires batch size 1 and [batch, sequence, hidden] inputs")
     if not value.shape[1] or value.shape[-1] % num_heads:
@@ -53,14 +44,14 @@ def _head_view(value: Tensor, num_heads: int) -> Tensor:
     return value.reshape(*value.shape[:-1], num_heads, value.shape[-1] // num_heads)
 
 
-def _last_logits(output: Any) -> Tensor:
+def _last_logits(output):
     logits = output["logits"] if isinstance(output, dict) else output.logits
     if logits.ndim != 3 or logits.shape[0] != 1:
         raise ValueError("Adapter logits must have shape [1, sequence, vocabulary]")
     return logits[0, -1].float()
 
 
-def _margin(adapter: Any, batch: dict[str, Any]) -> Tensor:
+def _margin(adapter, batch):
     value = adapter.answer_margin(batch)
     if not isinstance(value, Tensor) or value.numel() != 1:
         raise ValueError("adapter.answer_margin must return a scalar tensor")
@@ -70,7 +61,7 @@ def _margin(adapter: Any, batch: dict[str, Any]) -> Tensor:
 
 
 @contextmanager
-def _evaluation(adapter: Any, *, freeze: bool = False) -> Iterator[None]:
+def _evaluation(adapter, *, freeze=False):
     states = [(module, module.training) for module in adapter.model.modules()]
     parameters = [(parameter, parameter.requires_grad) for parameter in adapter.model.parameters()]
     try:
@@ -88,12 +79,12 @@ def _evaluation(adapter: Any, *, freeze: bool = False) -> Iterator[None]:
 
 
 @contextmanager
-def _capture(adapter: Any, layers: list[int]) -> Iterator[dict[int, Tensor]]:
-    captures: dict[int, Tensor] = {}
+def _capture(adapter, layers):
+    captures = {}
     handles = []
 
-    def make_hook(layer: int):
-        def hook(_module: Any, args: tuple[Any, ...]) -> None:
+    def make_hook(layer):
+        def hook(_module, args):
             value = _head_view(args[0], adapter.num_heads)
             captures[layer] = value[0, -1].detach().cpu().clone()
         return hook
@@ -108,8 +99,8 @@ def _capture(adapter: Any, layers: list[int]) -> Iterator[dict[int, Tensor]]:
 
 
 @contextmanager
-def _patch(adapter: Any, layer: int, head: int, donor: Tensor) -> Iterator[None]:
-    def hook(_module: Any, args: tuple[Any, ...]) -> tuple[Any, ...]:
+def _patch(adapter, layer, head, donor):
+    def hook(_module, args):
         value = args[0]
         changed = _head_view(value, adapter.num_heads).clone()
         if changed.shape[-1] != donor.numel():
@@ -124,7 +115,7 @@ def _patch(adapter: Any, layer: int, head: int, donor: Tensor) -> Iterator[None]
         handle.remove()
 
 
-def _selected(adapter: Any, artifact: dict[str, Any]) -> list[dict[str, Any]]:
+def _selected(adapter, artifact):
     layers, heads = _adapter_shape(adapter)
     if artifact.get("num_heads", heads) != heads or artifact.get("layer_count", layers) != layers:
         raise ValueError("Artifact architecture does not match this adapter")
@@ -144,17 +135,14 @@ def _selected(adapter: Any, artifact: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 @contextmanager
-def _gains(
-    adapter: Any, entries: list[dict[str, Any]], deltas: Any, positions: str,
-) -> Iterator[None]:
-    """`deltas` is a callable so every forward builds a fresh autograd graph."""
-    by_layer: dict[int, list[tuple[int, int]]] = defaultdict(list)
+def _gains(adapter, entries, deltas, positions):
+    by_layer = defaultdict(list)
     for index, entry in enumerate(entries):
         by_layer[entry["layer"]].append((entry["head"], index))
     handles = []
 
-    def make_hook(members: list[tuple[int, int]]):
-        def hook(_module: Any, args: tuple[Any, ...]) -> tuple[Any, ...]:
+    def make_hook(members):
+        def hook(_module, args):
             value = args[0]
             shaped = _head_view(value, adapter.num_heads)
             current = deltas()
@@ -180,8 +168,7 @@ def _gains(
             handle.remove()
 
 
-def discover(adapter: Any, records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
-    """Rank heads by oracle restoration of an object-existence answer margin."""
+def discover(adapter, records, config):
     layer_count, head_count = _adapter_shape(adapter)
     layers = [_integer(value, "layer", 0) for value in config.get("layers", range(layer_count))]
     heads = [_integer(value, "head", 0) for value in config.get("heads", range(head_count))]
@@ -199,7 +186,7 @@ def discover(adapter: Any, records: list[dict[str, Any]], config: dict[str, Any]
     if mode not in {"causal", "random", "magnitude"}:
         raise ValueError("selection_mode must be causal, random, or magnitude")
     limit = _integer(config.get("max_examples", len(records)), "max_examples")
-    observations: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
+    observations = defaultdict(list)
     used_ids, skipped = [], []
 
     with _evaluation(adapter), torch.no_grad():
@@ -242,7 +229,7 @@ def discover(adapter: Any, records: list[dict[str, Any]], config: dict[str, Any]
         raise ValueError("No discovery examples passed the clean-correct and object-mask effect criteria")
     scores = []
     for (layer, head), values in observations.items():
-        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        groups = defaultdict(list)
         for value in values:
             groups[value["group"]].append(value)
         scores.append({
@@ -278,13 +265,7 @@ def discover(adapter: Any, records: list[dict[str, Any]], config: dict[str, Any]
     }
 
 
-def fit(
-    adapter: Any,
-    records: list[dict[str, Any]],
-    selection: dict[str, Any],
-    config: dict[str, Any],
-) -> dict[str, Any]:
-    """Fit bounded head gains; all base-model parameters remain frozen."""
+def fit(adapter, records, selection, config):
     entries = _selected(adapter, selection)
     positions = _positions(config.get("positions", "last"))
     epochs = _integer(config.get("epochs", 2), "epochs")
@@ -299,7 +280,7 @@ def fit(
         maximum_steps = _integer(maximum_steps, "max_steps", 2)
         if maximum_steps % 2:
             raise ValueError("max_steps must be even to preserve yes/no balance")
-    labels: dict[str, list[int]] = {"yes": [], "no": []}
+    labels = {"yes": [], "no": []}
     for index, record in enumerate(records):
         label = str(record["label"]).lower()
         if label not in labels:
@@ -309,7 +290,7 @@ def fit(
         raise ValueError("Fit data must include both yes and no object-existence examples")
     raw = torch.nn.Parameter(torch.zeros(len(entries), device=adapter.device, dtype=torch.float32))
     optimizer = torch.optim.Adam([raw], lr=learning_rate)
-    cache: dict[int, tuple[bool, Tensor | None]] = {}
+    cache = {}
     history = []
     steps = 0
 
@@ -387,8 +368,7 @@ def fit(
 
 
 @contextmanager
-def steer(adapter: Any, artifact: dict[str, Any], config: dict[str, Any] | None = None) -> Iterator[None]:
-    """Apply fitted gains to the current input only; hooks are always removed."""
+def steer(adapter, artifact, config=None):
     entries = _selected(adapter, artifact)
     if artifact.get("stage") != "fitted":
         raise ValueError("steer requires a fitted artifact")

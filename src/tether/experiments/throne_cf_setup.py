@@ -1,13 +1,7 @@
-"""One-off setup of the colour-fixed-V_obj THRONE run (vdd4, 11-04):
-  1. outputs/rbd-20261030/collect/<model>-vobj2cf.json = <model>-vobj2.json minus the tokens whose word is mainly a colour
-     term in captions (DROP below); the old files stay. Prints the removed tokens and the colour-like words kept.
-  2. decoding/vdd_vobj.py = decoding/vdd.py + `--vobj PATH` (default: the old file). Nothing else changes.
-  3. sets/throne_cfdev200.jsonl = throne_full rows 4000-4199 (disjoint from throne_full1000 and the Gemma dev 4940-4999)."""
 import glob,json,sys
 from pathlib import Path
 from transformers import AutoProcessor
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'outputs/rbd2-20261102';C=R/'outputs/rbd-20261030/collect'
-# words used mainly as colours in captions; 'oranges' (fruit plural), rose, wine, chocolate, lemon, mint, sand, salmon etc. stay
 DROP={'orange','cream','creams','ivory','violet','coral','bronze','copper'}
 LOOKED_AT='orange gold golden silver lime olive peach plum rose salmon cream coral ivory amber tan navy maroon violet lavender chocolate wine berry bronze copper mint lemon sand'.split()
 for model,pat in (('qwen','Qwen--Qwen2.5-VL-7B-Instruct'),('gemma','google--gemma-4-E4B-it')):

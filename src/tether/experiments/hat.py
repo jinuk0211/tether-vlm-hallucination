@@ -1,23 +1,3 @@
-"""Set, queues, pick and progress of the HAT + ALOHa run (hat_chain.sh; models qwen, gemma).
-  set                 sets/$HAT_RUN.jsonl: the 385 unique images of HAT's 400 samples in file order (the public file has no val
-                      split), prompt and max_new_tokens of chair_test150 unless HAT_PROMPT / HAT_MAX_TOK are set, COCO's references
-                      from the HAT file. Images: existing COCO val2014 copies, others from images.cocodataset.org.
-  queue_dev           queues/$HAT_RUN_dev.txt: selection on rows 0-59: bench Base, vdd Base, 7 RBD candidates of each model.
-  pick MODEL JSON     rule fixed before any result (score JSON of rows 0-59): a candidate is eligible only if its ALOHa beats BOTH
-                      bench Base and vdd Base and its RefCov >= vdd Base RefCov - 2. Among eligible ones: highest ALOHa; within 0.5
-                      of it -> highest RefCov. None eligible -> 'none': the model's RBD does not continue, baselines do.
-                      Writes $HAT_RUN/pick-MODEL.txt.
-  queue_test MODELS   queues/$HAT_RUN_test.txt: the picks + both Bases on rows 60-384, the other baselines on all rows.
-  queue_bg MODELS     queues/$HAT_RUN_bg.txt, lowest priority for joined workers: units of a later model that need no pick (Bases, baselines, candidates on the
-                      selection rows), so that no worker idles while the chain parses and scores the model before it. The chain later lists the same units and skips them.
-  status              rows done per model and method, and the remaining GPU-hours from the seconds per image so far.
-  pilot MODELS        HAT_RUN=pilot_chair500: no decoding. The CHAIR 500 captions that exist (vdd Base and the paper's RBD row) with
-                      COCO's references, to read ALOHa's direction before the HAT decode.
-Baselines as on AMBER 1004 / THRONE 1000: Qwen baselines/bench_qwen.py (base, rudder_clone sdpa; grains_clone eager) and
-baselines/vti_ws.py at 0.9/0.9; Gemma baselines/bench_gemma.py (all eager, VTI = own implementation).
-REVIS is out of these queues: baselines/local.py is a paper-based own implementation, not antgroup/Revis. A REVIS run placed later in
-runs/${HAT_RUN}_MODEL as revis-0-385.jsonl (row format as the others) is scored like any other method by eval/hat_aloha.py score.
-Queue lines: MODEL KIND TAG START END args... -> runs/${HAT_RUN}_MODEL/TAG-START-END.jsonl."""
 import collections,concurrent.futures as cf,hashlib,json,os,shutil,sys,urllib.request
 from pathlib import Path
 from tether.eval.hat_common import H, HAT_JSON, O, R, RUN, SET, read, rundir
@@ -26,7 +6,6 @@ SPANS=[(0,SEL)]+[(s,min(s+50,N)) for s in range(SEL,N,50)]
 BASELINES={'qwen':[('bench','rudder_clone','--attn sdpa'),('bench','grains_clone','--attn eager'),('vti','vtiws_v0.9_t0.9','')],
            'gemma':[('bench','rudder_clone',''),('bench','grains_clone',''),('bench','vti','')]}
 def cand(model):
-    """CHAIR, AMBER and THRONE settings of the paper at the model's layer, with the old V_obj and with the colour-fixed one."""
     n=16 if model=='qwen' else 24;A=f"--attn {'sdpa' if model=='qwen' else 'eager'} --layer {n}";V=f'--vobj {R}/outputs/rbd-20261030/collect/{model}-vobj2cf.json'
     return {f's{n}a2bl1p05':f'{A} --alpha 2 --lam 1 --pen 0.5',f's{n}a1bl1p05':f'{A} --alpha 1 --lam 1 --pen 0.5',
             'mainMed':f'{A} --alpha 1 --lam 1 --pen 0.5 --norm median',f's{n}a1bl2p1':f'{A} --alpha 1 --lam 2 --pen 1',

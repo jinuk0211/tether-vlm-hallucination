@@ -1,7 +1,4 @@
 #!/bin/bash
-# project-b port of rbd2 worker.sh + sweep.sh: run a queue in order on one GPU, skipping complete runs.
-# usage: pb_worker.sh GPU_INDEX QUEUE MODE      MODE=test  lines "SET TAG args..."  (decoding/vdd.py, 60 images)
-#                                               MODE=sweep lines "TAG args..."      (decoding/sweep.py on chair_test60)
 G=$1; Q=$2; MODE=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; mkdir -p $L
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

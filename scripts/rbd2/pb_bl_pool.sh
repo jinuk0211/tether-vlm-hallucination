@@ -1,9 +1,4 @@
 #!/bin/bash
-# Existing baselines (and Base) through baselines/bench_qwen.py: workers share one queue, a unit is claimed with mkdir (atomic).
-# Queue lines "METHOD ATTN SET OUTDIR START END" -> sets/SET.jsonl rows START-END into runs/OUTDIR/METHOD-START-END.jsonl
-# (resumable). A failed unit drops its claim and is retried in the second pass; after two failures of a method (any
-# workers) its remaining units are skipped, so a broken method does not reload the model for every chunk.
-# usage: pb_bl_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_bl; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

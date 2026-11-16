@@ -1,12 +1,3 @@
-"""THRONE on all 5,000 COCO val2017 images. Rows 0-999: the paper's runs and their judgments (throne_full1000, gemma_throne1000,
-*_cf_test_all); rows 1000-4999: the t4k runs, judged per 1,000-image block (eval/throne_5k_judge.py). The judgments of the pieces are merged per judge and
-read with THRONE's own functions (process_aqa_instance_preds as in prepare_aqa_preds, majority_vote_collapsing). Metrics as in eval/throne_xl.py and
-eval/throne_metrics.py: ALL = official micro (per image; F over the images with P+R>0, as the official scorer's NaN handling), CLS = class-wise.
-Two judges (flan-t5 base, large) at threshold 6 = the paper's main columns; three judges (+ xl) at threshold 9 = THRONE's default = the xl columns.
-Paired image bootstrap vs the backbone's Base, 2000 resamples, seed 0.
-Ranges: 200-999 (check: the two-judge rows must equal tab:throne_full as it stands), 200-N (the report: rows 0-199 picked the final config.),
-0-N and 1000-N, with N = 1000 + 1000 x the number of new blocks judged by every judge for every row (or --blocks K).
-usage: BENCH=/home/project-b/LJW/bench python -m tether.eval.throne_5k [--blocks K] [--json OUT]     (THRONE venv, CPU)"""
 import argparse,contextlib,glob,io,json,os,sys
 from pathlib import Path
 import numpy as np
@@ -113,7 +104,6 @@ for s0,s1,rl in ranges:
                     print(f"   {'':22s}"+''.join(f"{'[%+.1f,%+.1f]'%c:>13s}" for c in ci));rec['ci_vs_base']=dict(zip([s+'_'+q for s,q in Q],ci))
                 out['results'].setdefault(rl,{}).setdefault(f'{len(judges)}j_thr{thr}',{}).setdefault(bb,{})[name]=rec
         print()
-# REVIS on Qwen2.5 left every caption of the first 1,000 unchanged (tab:throne_full omits it); the same check on all rows decoded so far
 for bb,(M,rows) in ROWS.items():
     try:
         b=read(RUNS/rows[0][1]/'base-0-1000.jsonl');r=read(RUNS/rows[1][1]/'revis-0-1000.jsonl')

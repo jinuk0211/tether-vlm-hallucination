@@ -24,7 +24,7 @@ def mats(d):
                 P[i,n2i[p]]=1
                 if p in gt[k]:C[i,n2i[p]]=1
     return P,C,G
-def per_img(P,C,G):   # official micro: P_i=R_i=0 if the pred or gt set is empty
+def per_img(P,C,G):
     np_,nc,ng=P.sum(1),C.sum(1),G.sum(1);ok=(np_>0)&(ng>0)
     p=np.where(ok,nc/np.maximum(np_,1),0.);r=np.where(ok,nc/np.maximum(ng,1),0.);return p,r,np_
 def f05(p,r):

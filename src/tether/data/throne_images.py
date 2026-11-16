@@ -1,5 +1,3 @@
-"""Fetch the 60 COCO val2017 images of throne_test60 from images.cocodataset.org, check each against the manifest's
-image_sha256, and write the manifest with project-b paths. usage: python -m tether.data.throne_images IN.jsonl OUT.jsonl IMGDIR"""
 import hashlib,json,sys,urllib.request
 from pathlib import Path
 src,dst,img=Path(sys.argv[1]),Path(sys.argv[2]),Path(sys.argv[3]);img.mkdir(parents=True,exist_ok=True);rows=[]

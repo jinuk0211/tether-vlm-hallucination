@@ -1,4 +1,3 @@
-"""Build the CHAIR ground-truth cache once from the full COCO annotations."""
 import contextlib
 import hashlib
 import json

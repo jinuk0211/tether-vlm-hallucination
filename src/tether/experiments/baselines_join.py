@@ -1,10 +1,3 @@
-"""One comparison directory per set, runs/<set>_test150_cmp/<tag>-0-150.jsonl, so every method is scored against the same
-Base (rbd2 base: BF16, sdpa) on the same 150 images:
-  rbd2 tags    copied from runs/<set>_test150_all (experiments/join_150.py); THRONE judge outputs (eval/<tag>) are copied too
-  baselines    joined from runs/<set>_test150_bl (baselines/bench_qwen.py: REVIS/RUDDER BF16 + sdpa, GrAInS/VTI FP16 + eager
-               with FP32 attention scores); CHAIR GrAInS/VTI reuse the first 150 rows of the verified test run
-               (original-vti-gpu1-final, the same settings; their FP16 captions have no ' addCriterion').
-Every piece must match sets/<set>_test150.jsonl id for id."""
 import glob,json,re,shutil,sys
 from pathlib import Path
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'outputs/rbd2-20261102';N=150

@@ -1,17 +1,3 @@
-"""How much does each caption token rely on the image? (teacher forcing on Base captions)
-
-Three measures per caption token t, all on the unmodified Base model:
-  attn  : attention mass from the position predicting t onto image tokens (per layer)
-  vcd   : log p(t | real image) - log p(t | gray image of the same size)
-  jac   : gradient x input attribution of log p(t) at the vision->LLM interface
-          (input of decoder layer 0, i.e. projected visual tokens merged with
-          text embeddings); image share = attribution on image positions / all
-          earlier positions. Computed for object-mention tokens (CHAIR labels:
-          hallucinated / correct) and every 16th caption token (position control).
-For each mentioned object we also ask "Is there a {node} in the image?" and take
-the same image share for the answer token, to contrast the caption position with
-the question position for the same object.
-"""
 import argparse,json,os,time,traceback
 from pathlib import Path
 import torch
@@ -24,7 +10,6 @@ from tether.eval.chair_scorer import chair_scorer
 CHAIR={'qwen':C.MODELS['qwen']/'original-vti-gpu1-final/chair','gemma':C.MODELS['gemma']/'chair'}
 
 class Capture:
-    """Make the decoder-layer-0 input a leaf that requires grad."""
     def __init__(self,layer):self.h=None;self.on=False;self.handle=layer.register_forward_pre_hook(self.hook,with_kwargs=True)
     def hook(self,mod,args,kwargs):
         if not self.on:return None
@@ -69,13 +54,12 @@ def main(a):
             with torch.no_grad():
                 o=m(**br,output_attentions=True,use_cache=False,return_dict=True)
                 lp=torch.log_softmax(o.logits[0].float(),-1)
-                attn=torch.stack([x[0,:,:,:].float()[:,:,img].sum(-1).mean(0) for x in o.attentions])  # [layers, L]
+                attn=torch.stack([x[0,:,:,:].float()[:,:,img].sum(-1).mean(0) for x in o.attentions])
                 del o
                 ob=m(**bb,use_cache=False,return_dict=True);lpb=torch.log_softmax(ob.logits[0].float(),-1);del ob
             pos=list(range(capstart,L))
             lpr=torch.tensor([float(lp[p-1,ids[p]]) for p in pos]);lpbk=torch.tensor([float(lpb[p-1,ids[p]]) for p in pos])
             at=attn[:,[p-1 for p in pos]].half()
-            # object mentions (caption-relative token index) and control positions
             ments=[(nd,w,t) for nd,w,t in mention_token_positions(tok,capids,scorer)]
             targets={t:('hallucinated' if nd in hall else 'correct',nd,w) for nd,w,t in ments}
             for t in range(0,len(capids)-1,16):targets.setdefault(t,('control',None,None))
@@ -89,7 +73,6 @@ def main(a):
                 g,=torch.autograd.grad(lpt,h,retain_graph=True)
                 jac[t]={'kind':kind,'node':nd,'word':w,'img_share':share(g,h,img,p),'logp':float(lpt)}
             del o,h
-            # same objects asked as a question
             qs={}
             for nd in sorted({nd for nd,_,_ in ments}):
                 art='an' if nd[0] in 'aeiou' else 'a'

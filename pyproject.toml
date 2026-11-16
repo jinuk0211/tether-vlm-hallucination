@@ -18,7 +18,6 @@ dependencies = [
 
 [project.optional-dependencies]
 eval = ["nltk>=3.9,<4", "pycocotools>=2.0.8", "PatternLite==3.6", "tqdm>=4.66"]
-test = ["pytest>=8,<9", "ruff==0.14.1"]
 
 [project.scripts]
 tether = "tether.cli:main"
@@ -28,10 +27,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 tether = ["resources/*.json"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100

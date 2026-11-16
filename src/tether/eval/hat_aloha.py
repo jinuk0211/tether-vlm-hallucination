@@ -1,23 +1,3 @@
-"""ALOHa on HAT through the official code (DavidMChan/aloha @7da6b90): ALOHa.__call__, MPNetSimilarity and DETR labels at
-threshold 0.9 (add_object_detections), as METRICS['aloha'] with 3 in-context examples. Only additions: the parser reads the
-cache of eval/hat_parse.py, embeddings are cached (same numbers), and an object list whose alternatives ('a or b') multiply past
-CAP keeps the first alternative of the later groups (counted as capped).
-  detect                             DETR labels of every set image -> $HAT_RUN/detections.json
-  validate PARSER                    HAT's own 400 captions vs the gold labels: AP of 1 - ALOHa (paper, GPT-3.5 + DETR: 48.62)
-  score PARSER RUNDIR START END OUT  every complete run on rows START-END of the set; paired bootstrap vs 'base' (and vs
-                                     'vddbase' for vdd rows), 2000 resamples, seed 0. OUT.json = table, OUT.per_image.json = rows.
-Columns (ALOHa and meanNN x100, higher is better; shares in %):
-  ALOHa    official caption score: mean over images of min over objects of the Hungarian (1-1) similarity. No objects -> nan
-           (official -inf), counted in noobj. The official aggregate leaves out objects with no partner, so on captions with
-           more objects than references (T>R column) the min runs over the references' partners only.
-  meanNN   each object's best reference (no 1-1 matching), mean over the caption's objects, mean over images.
-  Flag     objects with best-reference similarity <= 0.5 (the paper's flag level), % of all objects; #Flag per image.
-  RefCov   reference objects with some caption object above 0.5, % (a recall column; not in the ALOHa paper).
-  same     captions identical to 'base'.
-HAT_ALOHA_FIX=1: the official aggregate with its bug fixed. _compute_alohao_scores means to add a 0 for every caption
-object without a Hungarian partner ("Add entries of 0 similarity for every unmatched target word"), but
-`similarity_scores + np.array([0]) * n_unmatched` adds 0 elementwise and drops them. Fixed: min (or mean) over all caption objects,
-unmatched ones at 0, i.e. over the 'similarity' of the official matches list. Everything else unchanged."""
 import json,os,sys
 from pathlib import Path
 import numpy as np
@@ -56,13 +36,12 @@ def build(parser):
         if FIX:
             def _compute_alohao_scores(self,t,r,aggregate_method='min'):
                 s,m=super()._compute_alohao_scores(t,r,aggregate_method)
-                if not t or not r:return s,m   # official early returns, no aggregate bug there
+                if not t or not r:return s,m
                 v=np.array([x['similarity'] for x in m],float);assert len(v)==len(t)
                 return float(v.mean() if aggregate_method=='mean' else v.min()),m
     return Capped(name='aloha',object_parser=Cached,similarity_measure=Sim,num_reference_examples=3,num_target_examples=3,debug=False)
 
 def one(metric,caption,refs,dets):
-    """Official score + per-object numbers of one caption."""
     s,info=metric(caption,refs,None,dets);ref_groups=info['reference_objects']
     if not np.isfinite(s):return {'aloha':float('nan'),'mean_nn':float('nan'),'n_t':0,'n_unm':0,'n_flag':0,'n_cov':0,'n_ref':len(ref_groups),'noobj':1}
     m=info['matches'] or [];t=[x['target_word'] for x in m]
@@ -86,7 +65,7 @@ def validate(parser):
     metric=build(parser);hat=json.loads(HAT_JSON.read_text(encoding='utf-8'));y=[];s=[]
     for x in hat:
         r=one(metric,x['caption'],x['references'],D[by[x['image_path']]]);y.append(x['contains_hallucination'])
-        s.append(1-(1.0 if np.isnan(r['aloha']) else r['aloha']))   # no objects, no hallucination
+        s.append(1-(1.0 if np.isnan(r['aloha']) else r['aloha']))
     print(f'HAT reproduction ({parser}): AP {100*ap(y,s):.2f}  (paper GPT-3.5 + DETR 48.62, CHAIRs 36.85; share of hallucinated samples {100*np.mean(y):.2f})  n {len(y)}')
 
 def metrics(x,k=None):

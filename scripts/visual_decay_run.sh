@@ -1,9 +1,4 @@
 #!/bin/bash
-# Visual-decay analysis: collect on one GPU (shards run one after another), then summarize and plot on CPU.
-# usage: bash scripts/visual_decay_run.sh GPU_INDEX MODEL [START END [SHARD] [--regenerate]]
-#   bash scripts/visual_decay_run.sh 1 qwen            -> captions 0-500 in shards of 125
-#   bash scripts/visual_decay_run.sh 1 gemma 0 300     -> the fixed 300-caption subset
-# Refuses to start unless the GPU has NEED_GB free (default 30), so it cannot push other jobs into OOM.
 set -euo pipefail
 GPU=$1; MODEL=$2; START=${3:-0}; END=${4:-500}; SHARD=${5:-125}; EXTRA=${6:-}
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R

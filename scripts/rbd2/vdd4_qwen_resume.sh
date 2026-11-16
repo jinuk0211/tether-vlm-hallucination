@@ -1,13 +1,4 @@
 #!/bin/bash
-# Resume of the THRONE colour-fix run (vdd4_chain.sh, left running for Gemma on GPUs 3, 4). At 19:07 the Qwen pick failed on a
-# parser bug in experiments/throne_cf.py (fixed 20:28; rule unchanged), so the chain skipped Qwen's 800 images. Runs on GPUs 2-5.
-# 1. Qwen: pick on the existing table, the pick on rows 200-999 on GPU 2 x1 and GPU 5 x2 (memory-gated), judges on GPU 5 or 2,
-#    then a 1000-image table and an 800-image table (rows 200-999, not used for selection) with the
-#    baselines re-scored from their existing judge files.
-# 2. Gemma: once the chain has picked, adds workers on GPU 2 x1 and GPU 5 x2 to its test queue (units are claimed with mkdir,
-#    and every pool stays until all units are complete, so the chain's join still waits for them); after gemma_DONE, the same
-#    800-image table for Gemma.
-# Log: logs/vdd4.log, VDD4Q_DONE.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/vdd4.log; TP=$L/venvs/throne/bin/python
@@ -42,7 +33,6 @@ if [ -n "$P" ] && [ "$P" != none ]; then
     log "qwen_DONE"
   else log "qwen test incomplete (claims_vdd4/fail-*, logs/v4pool-x*.log)"; fi
 else log "qwen: no candidate passed; not continued to 1000"; fi
-# Gemma: help with the test units, then the 800-image table
 until [ -f $O/runs/gemma_cf_pick.txt ] || grep -q VDD4_DONE $LOG; do sleep 60; done
 G4=$(head -1 $O/runs/gemma_cf_pick.txt 2>/dev/null)
 if [ -n "$G4" ] && [ "$G4" != none ]; then

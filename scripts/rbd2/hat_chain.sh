@@ -1,21 +1,4 @@
 #!/bin/bash
-# HAT + ALOHa in place of AMBER: Base, RUDDER, GrAInS, VTI and RBD on the 385 images of HAT, Qwen2.5-VL-7B and Gemma 4 E4B (REVIS: see experiments/hat.py).
-# Same decoding as CHAIR (prompt, 512 tokens; HAT_PROMPT / HAT_MAX_TOK change it, with another HAT_RUN so nothing mixes).
-#  1 setup + set + DETR labels; HAT reproduction (AP on HAT's own captions vs the paper's 48.62), logged, does not stop the run
-#  2 selection on rows 0-59: both Bases + 7 RBD candidates per model; experiments/hat.py pick (rule and guard there)
-#  3 the picks + both Bases on rows 60-384, the other baselines on all rows
-#  4 tables on all 385 rows and on rows 60-384 (not used for selection)
-# The official parser model no longer exists (gpt-3.5-turbo shut down 2026-10-23); PARSER selects the replacement, see eval/hat_parse.py.
-# Log: logs/$HAT_RUN.log, HAT_DONE / HAT_STOPPED; scorer stderr logs/$HAT_RUN-scorer.log.   progress: experiments/hat.py status
-# Restart after a kill: rm -r claims_$HAT_RUN (finished units are kept; a unit with partial rows resumes).
-# Everything stays under LJW (TMPDIR, XDG_CACHE_HOME, HF_HOME, NLTK_DATA below); CPU steps run at nice 10 with 8 threads.
-# usage: [PARSER=hf:Qwen/Qwen3-VL-8B-Instruct] [MODELS="qwen gemma"] [WORKERS="2 3 4 4 5 5"] [PARSE_GPUS="5 4 3 2"] [HAT_RUN=hat385]
-#        [HAT_AFTER="PID ..."] hat_chain.sh     HAT_AFTER: nothing here touches a GPU until these processes have exited (the CPU steps
-#        go on); two memory-gated pools on one GPU race at unit boundaries, so another chain's GPUs are taken only when it has ended.
-# HAT_REPRO_ONLY=1: stop after step 1 (REPRO_DONE).
-# HAT_PILOT=1 (HAT_RUN=pilot_chair500), instead of steps 1-4: ALOHa on the CHAIR 500 captions that already exist (vdd Base vs the
-# paper's RBD row; one GPU for the parser, no decoding), PILOT_DONE. Reads the score's direction early; own log and parse cache, so it
-# can run next to the HAT chain (run hat_setup.sh once first, so that they do not both start the setup).
 L=${HAT_L:-/home/project-b/LJW}; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 [ -n "$HAT_PILOT" ] && HAT_RUN=pilot_chair500
@@ -38,9 +21,8 @@ for f in src/tether/decoding/vdd_vobj.py src/tether/baselines/bench_qwen.py src/
          outputs/rbd-20261030/collect/qwen-vobj2cf.json outputs/rbd-20261030/collect/gemma-vobj2cf.json; do [ -e $f ] || stop "missing $f"; done
 [ -x $AP ] || bash scripts/rbd2/hat_setup.sh >> $LOG 2>&1 || stop "setup failed"
 export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
-       PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=$L/.cache/nltk_data TOKENIZERS_PARALLELISM=false PYTHONHASHSEED=0   # the official metric iterates over sets
+       PYTHONDONTWRITEBYTECODE=1 NLTK_DATA=$L/.cache/nltk_data TOKENIZERS_PARALLELISM=false PYTHONHASHSEED=0
 detect(){ [ -s $H/detections.json ] || $APN -m tether.eval.hat_aloha detect 2>> $SE >> $LOG || stop "detections failed ($SE)"; }
-# Another job's model can take the memory between the check and the load: out-of-memory is retried, any other failure stops.
 parse(){ for try in 1 2 3 4 5; do
     case $PARSER in
       hf:*) wait_after; until G=$(for x in $PARSE_GPUS; do [ $(fre $x) -ge 19500 ] && echo $x && break; done); [ -n "$G" ]; do sleep 60; done
@@ -71,7 +53,6 @@ for M in $MODELS; do
   parse --run $O/runs/${HAT_RUN}_$M; log "$M selection table (rows 0-59)"
   score $M 0 60 > /dev/null && $PY -m tether.experiments.hat pick $M $H/score-$M-0-60.json >> $LOG 2>&1 || log "$M pick failed: RBD not continued (table above, logs/hat-$M-*.log)"
 done
-# REVIS, RUDDER, GrAInS and VTI run on all rows whatever the selection says; a model with no pick loses only RBD.
 $PY -m tether.experiments.hat queue_test $MODELS >> $LOG 2>&1 || stop "test queue failed"
 log "test decode"; phase $O/queues/${HAT_RUN}_test.txt
 for M in $MODELS; do

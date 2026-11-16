@@ -1,7 +1,3 @@
-"""Evaluation helpers: output coverage checks, official scorers, image-cluster bootstrap."""
-
-from __future__ import annotations
-
 import csv
 import hashlib
 import importlib.util
@@ -12,24 +8,20 @@ import re
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Mapping, Sequence
-
-Record = dict[str, Any]
 
 
-def parse_yes_no(text: str) -> str | None:
-    """Accept a leading standalone Yes/No, optionally after 'Answer:'; else invalid."""
+def parse_yes_no(text):
     match = re.match(
         r"^\s*(?:answer\s*:\s*)?(yes|no)(?=\s|[.!?,;:]|$)", text, flags=re.IGNORECASE
     )
     return match.group(1).lower() if match else None
 
 
-def _ratio(numerator: float, denominator: float) -> float | None:
+def _ratio(numerator, denominator):
     return numerator / denominator if denominator else None
 
 
-def _validate_predictions(records: Sequence[Mapping[str, Any]]) -> None:
+def _validate_predictions(records):
     if not records:
         raise ValueError("No predictions provided")
     keys = set()
@@ -45,14 +37,11 @@ def _validate_predictions(records: Sequence[Mapping[str, Any]]) -> None:
             raise ValueError(f"{record['id']}: prediction must be a string")
 
 
-def match_predictions(
-    manifest: Sequence[Mapping[str, Any]], predictions: Sequence[Mapping[str, Any]]
-) -> list[Record]:
-    """Join ID-only external outputs to trusted manifest data, failing on missing/extra IDs."""
+def match_predictions(manifest, predictions):
     expected = {str(row["id"]): row for row in manifest}
     if len(expected) != len(manifest):
         raise ValueError("Manifest has duplicate IDs")
-    by_method: defaultdict[str, dict[str, Mapping[str, Any]]] = defaultdict(dict)
+    by_method = defaultdict(dict)
     for row in predictions:
         method, identifier = str(row.get("method", "base")), str(row["id"])
         if identifier in by_method[method]:
@@ -84,15 +73,14 @@ def match_predictions(
     return joined
 
 
-def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Evaluate one homogeneous task/subset. Metric fractions are in [0, 1]."""
+def evaluate_predictions(records):
     _validate_predictions(records)
     tasks = {row["task"] for row in records}
     methods = {row.get("method", "base") for row in records}
     if len(tasks) != 1 or len(methods) != 1:
         raise ValueError("evaluate_predictions requires one task and method")
     task = next(iter(tasks))
-    metrics: dict[str, Any] = {
+    metrics = {
         "n": len(records),
         "n_image_groups": len({row["group_id"] for row in records}),
         "mean_words": sum(len(row["prediction"].split()) for row in records) / len(records),
@@ -137,7 +125,7 @@ def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         scores = [row["mmhal_score"] for row in records]
         if any(type(score) is not int or score not in range(7) for score in scores):
             raise ValueError("MMHal ratings must be integers from 0 through 6")
-        by_type: defaultdict[str, list[int]] = defaultdict(list)
+        by_type = defaultdict(list)
         for row, score in zip(records, scores):
             category = row.get("metadata", {}).get("question_type")
             if not isinstance(category, str) or not category:
@@ -164,7 +152,6 @@ def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         "accuracy": sum(correct) / len(records),
         "precision": precision,
         "recall": recall,
-        # Invalid positive answers are misses; an all-invalid system cannot gain recall.
         "F1": _ratio(2 * tp, 2 * tp + fp + positives - tp),
         "yes_ratio": parsed.count("yes") / len(records),
         "invalid_count": parsed.count(None),
@@ -176,7 +163,7 @@ def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         ),
     })
     if task == "mme":
-        grouped: defaultdict[tuple[str, str], list[bool]] = defaultdict(list)
+        grouped = defaultdict(list)
         for row, is_correct in zip(records, correct):
             category = row.get("metadata", {}).get("category")
             if not category:
@@ -184,8 +171,8 @@ def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
             grouped[(category, row["group_id"])].append(is_correct)
         if any(len(values) != 2 for values in grouped.values()):
             raise ValueError("MME acc+ requires exactly two questions per category/image")
-        category_rows: defaultdict[str, list[bool]] = defaultdict(list)
-        category_pairs: defaultdict[str, list[bool]] = defaultdict(list)
+        category_rows = defaultdict(list)
+        category_pairs = defaultdict(list)
         for (category, _), values in grouped.items():
             category_rows[category].extend(values)
             category_pairs[category].append(all(values))
@@ -202,7 +189,7 @@ def evaluate_predictions(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
     return metrics
 
 
-def _load_external_module(path: str | Path, name: str):
+def _load_external_module(path, name):
     path = Path(path).resolve()
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -214,7 +201,7 @@ def _load_external_module(path: str | Path, name: str):
     return module
 
 
-def _caption_image_id(record: Mapping[str, Any]) -> int:
+def _caption_image_id(record):
     value = record.get("metadata", {}).get("coco_image_id")
     if value is None and str(record["group_id"]).startswith("coco:"):
         value = str(record["group_id"]).split(":", 1)[1]
@@ -223,10 +210,7 @@ def _caption_image_id(record: Mapping[str, Any]) -> int:
     return int(value)
 
 
-def attach_chair_scores(
-    records: Sequence[Mapping[str, Any]], output: Mapping[str, Any] | str | Path
-) -> list[Record]:
-    """Consume CHAIR's object normalization/output, never guess synonyms locally."""
+def attach_chair_scores(records, output):
     _validate_predictions(records)
     if isinstance(output, (str, Path)):
         output = json.loads(Path(output).read_text(encoding="utf-8"))
@@ -258,16 +242,7 @@ def attach_chair_scores(
     return enriched
 
 
-def run_official_chair(
-    records: Sequence[Mapping[str, Any]],
-    chair_module_path: str | Path,
-    annotation_dir: str | Path,
-    output_path: str | Path | None = None,
-) -> list[Record]:
-    """Run the Maxlinn Python3 port of the original CHAIR.
-
-    The port and its dependencies are installed separately. Build annotations from JSON; never load upstream pickle.
-    """
+def run_official_chair(records, chair_module_path, annotation_dir, output_path=None):
     _validate_predictions(records)
     if {row["task"] for row in records} != {"caption"}:
         raise ValueError("CHAIR accepts caption records only")
@@ -311,10 +286,7 @@ def run_official_chair(
     return attach_chair_scores(records, output)
 
 
-def run_official_causal(
-    records: Sequence[Mapping[str, Any]], metric_module_path: str | Path
-) -> dict[str, Any]:
-    """Run Causal-HalBench metric.py on complete manifest-aligned predictions."""
+def run_official_causal(records, metric_module_path):
     _validate_predictions(records)
     if {row["task"] for row in records} != {"causal"}:
         raise ValueError("Causal-HalBench scorer accepts causal records only")
@@ -348,10 +320,7 @@ def run_official_causal(
     }
 
 
-def mmhal_responses(
-    records: Sequence[Mapping[str, Any]], template: str | Path
-) -> list[Record]:
-    """Restore the official 96-row response schema in its required original order."""
+def mmhal_responses(records, template):
     _validate_predictions(records)
     rows = json.loads(Path(template).read_text(encoding="utf-8-sig"))
     if not isinstance(rows, list) or len(rows) != 96 or any(not isinstance(r, dict) for r in rows):
@@ -383,12 +352,7 @@ def mmhal_responses(
     return output
 
 
-def attach_mmhal_scores(
-    records: Sequence[Mapping[str, Any]],
-    response_path: str | Path,
-    evaluation_path: str | Path,
-) -> list[Record]:
-    """Join ordered official GPT-4 raw responses only after verifying exact model answers."""
+def attach_mmhal_scores(records, response_path, evaluation_path):
     _validate_predictions(records)
     responses = json.loads(Path(response_path).read_text(encoding="utf-8-sig"))
     evaluations = json.loads(Path(evaluation_path).read_text(encoding="utf-8-sig"))
@@ -429,26 +393,19 @@ def attach_mmhal_scores(
     return scored
 
 
-def _cohort(record: Mapping[str, Any]) -> str:
+def _cohort(record):
     subset = record.get("metadata", {}).get("subset")
     return f"{record['task']}:{subset}" if subset else str(record["task"])
 
 
-def _quantile(values: Sequence[float], quantile: float) -> float:
+def _quantile(values, quantile):
     ordered = sorted(values)
     position = (len(ordered) - 1) * quantile
     lower, upper = math.floor(position), math.ceil(position)
     return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
 
 
-def compare_methods(
-    records: Sequence[Mapping[str, Any]],
-    *,
-    baseline: str = "base",
-    bootstrap_samples: int = 1000,
-    seed: int = 42,
-) -> dict[str, Any]:
-    """Paired comparisons require identical IDs/inputs; resample original image groups."""
+def compare_methods(records, *, baseline="base", bootstrap_samples=1000, seed=42):
     _validate_predictions(records)
     if bootstrap_samples < 0:
         raise ValueError("bootstrap_samples must be nonnegative")
@@ -458,14 +415,14 @@ def compare_methods(
     protocol_verified = bool(fingerprints) and all(
         row.get("protocol_fingerprint") for row in records
     )
-    methods: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    methods = defaultdict(list)
     for row in records:
         methods[str(row.get("method", "base"))].append(row)
     if baseline not in methods:
         raise ValueError(f"Missing baseline: {baseline}")
     reference = {str(row["id"]): row for row in methods[baseline]}
-    all_scores: dict[str, dict[str, Any]] = {}
-    cohorts: defaultdict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
+    all_scores = {}
+    cohorts = defaultdict(list)
     for method, rows in methods.items():
         current = {str(row["id"]): row for row in rows}
         if current.keys() != reference.keys():
@@ -489,7 +446,7 @@ def compare_methods(
         for cohort in all_scores[baseline]:
             base_rows = {str(r["id"]): r for r in cohorts[(baseline, cohort)]}
             test_rows = {str(r["id"]): r for r in cohorts[(method, cohort)]}
-            groups: defaultdict[str, list[str]] = defaultdict(list)
+            groups = defaultdict(list)
             for identifier, row in base_rows.items():
                 groups[str(row["group_id"])].append(identifier)
             group_ids = sorted(groups)
@@ -499,8 +456,7 @@ def compare_methods(
                 else ("mmhal_average_score", "mmhal_hallucination_rate", "mean_words")
                 if task == "mmhal" else ("accuracy", "recall", "F1")
             )
-            distributions: defaultdict[str, list[float]] = defaultdict(list)
-            # Duplicated sampled groups receive distinct IDs for validation.
+            distributions = defaultdict(list)
             for _ in range(bootstrap_samples):
                 sampled_base, sampled_method = [], []
                 for draw_index in range(len(group_ids)):
@@ -539,8 +495,7 @@ def compare_methods(
     }
 
 
-def write_comparison_csv(report: Mapping[str, Any], path: str | Path) -> None:
-    """Write comparable scalar metrics in long format; nested MME scores are separate rows."""
+def write_comparison_csv(report, path):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:

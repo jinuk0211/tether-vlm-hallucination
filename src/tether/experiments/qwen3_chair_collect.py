@@ -1,6 +1,3 @@
-"""Collect one tag's rows for the first N images of a set from runs/qchair_test500/TAG-A-B.jsonl into
-OUTDIR/TAG-0-N.jsonl in set order. Exit 1 if a row is missing.
-usage: python -m tether.experiments.qwen3_chair_collect SET N OUTDIR TAG..."""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');S=O/'runs/qchair_test500'

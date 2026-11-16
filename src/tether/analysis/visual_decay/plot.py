@@ -1,15 +1,10 @@
-"""HTML report (inline SVG, no plotting library) from analysis/visual_decay/analyze.py summaries.
-
-usage: python -m tether.analysis.visual_decay.plot OUT.html SUMMARY.json [SUMMARY.json ...]
-Each chart has a hover tooltip per point/cell and a table view.
-"""
 import html,json,math,sys
 from pathlib import Path
 
 SERIES=['var(--s1)','var(--s2)','var(--s3)','var(--s4)']
 SEQ=['#cde2fb','#b7d3f6','#9ec5f4','#86b6ef','#6da7ec','#5598e7','#3987e5','#2a78d6','#256abf','#1c5cab','#184f95','#104281','#0d366b']
-DIV_NEG=['#0d366b','#1c5cab','#2a78d6','#5598e7','#86b6ef','#b7d3f6']  # blue arm, dark -> light
-DIV_POS=['#f6c9c8','#f0a3a2','#e87c7b','#e34948','#c13a39','#8f2a29']  # red arm, light -> dark
+DIV_NEG=['#0d366b','#1c5cab','#2a78d6','#5598e7','#86b6ef','#b7d3f6']
+DIV_POS=['#f6c9c8','#f0a3a2','#e87c7b','#e34948','#c13a39','#8f2a29']
 MID='#f0efec'
 CSS="""
 .viz-root{color-scheme:light;--surface-1:#fcfcfb;--page:#f9f9f7;--text-primary:#0b0b0b;--text-secondary:#52514e;--muted:#898781;
@@ -47,14 +42,12 @@ def table_html(head,rows):
     return f'<details><summary>Table</summary><table><tr>{h}</tr>{b}</table></details>'
 
 def line_chart(title,sub,x,series,ylab,digits=3,zero=False,W=500,H=250):
-    """series: list of (name, [value|None], [[lo,hi]|None] or None)"""
     ml,mr,mt,mb=52,16,12,42;pw,ph=W-ml-mr,H-mt-mb
     vals=[v for _,ys,cs in series for v in ys if v is not None]+[c for _,_,cs in series if cs for p in cs if p for c in p if c is not None]
     if not vals:return ''
     lo,hi=min(vals),max(vals)
     if zero:lo=min(lo,0);hi=max(hi,0)
     pad=(hi-lo)*0.06 or abs(hi)*0.1 or 1;ticks=nice_ticks(lo-pad,hi+pad)
-    # shares and AUROCs live in [0,1]: keep the axis inside the range the data can take
     if min(vals)>=0 and ticks[0]<0:ticks=[t for t in ticks if t>=0]
     if max(vals)<=1 and ticks[-1]>1:ticks=[t for t in ticks if t<=1]
     lo,hi=ticks[0],ticks[-1]
@@ -123,7 +116,6 @@ def model_section(s):
     e1=s['E1_attention'];e2=s['E2_lens_repr'];e3=s['E3_causal'];out=[]
     out.append(f'<h2>{html.escape(s["model"])} — {s["captions"]} captions, {s["tokens"]:,} caption tokens, mean length {s["caption_length"]["mean"]:.0f}, '
                f'{s["image_tokens"]} image tokens</h2>')
-    # E1
     ser=[(b,*by_bin(e1['bands'][b]['image_share'],bins)) for b in ('early','middle','late')]
     c=[line_chart('Attention on image tokens, by layer band','share of content attention (pre-image sink tokens removed) from the step that writes each token',bins,ser,('caption position (tokens)','image share'))]
     a=e1['bands']['all'];ser=[(n,*by_bin(a[k],bins)) for n,k in (('image','image_share'),('prompt text','prompt_share'),('caption so far','caption_share'))]
@@ -140,7 +132,6 @@ def model_section(s):
         c.append('<div class="card"><h3>Where the sinks sit</h3><div class="sub">prompt positions receiving the most attention from caption steps (mean over layers); '
                  'a large hidden-state norm marks a massive-activation sink</div>'+table_html(['position','group','attention','norm ÷ median'],rows).replace('<details>','<details open>')+'</div>')
     out.append('<h3>E1 · attention</h3><div class="row">'+''.join(c)+'</div>')
-    # E2
     c=[];pl=e2['probe_layers'];idx=[s['bins'].index(b) for b in bins]
     M=e2['per_layer']['lens_image_contribution']['matrix']
     c.append(heatmap('Logit lens: image contribution per layer','log p(token | real image) − log p(token | gray image), same caption; red = the image helps',bins,list(range(len(M))),[[r[i] for i in idx] for r in M],diverging=True,digits=2,ytitle='layer (0 = embedding)'))
@@ -157,7 +148,6 @@ def model_section(s):
     mid=str(pl[1]);ser=[(n,[coh[mid].get(str(t),{}).get(k) for t in steps],None) for n,k in (('real image','real_auroc_unmentioned'),('gray image (text only)','gray_auroc_unmentioned'))]
     c.append(line_chart(f'Probe AUROC at layer {mid}','objects not yet mentioned; ceiling from pooled image tokens = '+fmt(pr.get('image_tokens_ceiling',{}).get(mid)),[str(t) for t in steps],ser,('caption step','macro AUROC')))
     out.append('<h3>E2 · logit lens and representations</h3><div class="row">'+''.join(c)+'</div>')
-    # E3
     c=[];conds=[x for x in ('gray','swap','ko0','ko64') if x in e3['by_bin']]
     names={'gray':'gray image','swap':'another image','ko0':'image keys blocked from step 0','ko64':'blocked from step 64'}
     for key,t,yl in (('kl','Change in the next-token distribution','KL(unmodified ‖ intervened)'),('greedy_agreement','Greedy choice unchanged','agreement')):

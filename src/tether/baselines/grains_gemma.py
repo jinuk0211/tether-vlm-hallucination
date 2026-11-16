@@ -1,4 +1,3 @@
-"""fit50 extraction with the cloned GrAInS attribution, ablation and PCA code."""
 import argparse
 import hashlib
 import json
@@ -32,8 +31,6 @@ def main(output):
         adapter=load_adapter(config['model'])
         for p in adapter.model.parameters():p.requires_grad_(False)
         fit=[json.loads(s) for s in (output/'data/fit50.jsonl').read_text().splitlines()];assert len(fit)==50
-        # Check that supplying token identities through Gemma's documented API
-        # preserves its unscaled token-only forward before interpolating.
         batch=adapter.prepare(fit[0]['image'],fit[0]['prompt'],fit[0]['chosen'])
         ids=batch['input_ids'];mask=batch['attention_mask'];proxy=GemmaAttributionAPI(adapter.model)
         embed=proxy.get_input_embeddings();first=embed(ids);embed(ids)

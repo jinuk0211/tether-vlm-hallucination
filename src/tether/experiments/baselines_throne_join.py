@@ -1,7 +1,3 @@
-"""Join the full-THRONE chunks of Base and the four baselines for the first N images (N a multiple of the chunk size):
-sets/throne_fullN.jsonl = the first N rows of sets/throne_full.jsonl, runs/throne_fullN/<method>-0-N.jsonl from
-runs/throne_full_bl/<method>-<a>-<b>.jsonl, every chunk checked id for id.
-usage: python -m tether.experiments.baselines_throne_join N"""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');N=int(sys.argv[1])

@@ -1,27 +1,3 @@
-"""Step 0 for query-anchored image attention: is the image attention right before a hallucinated
-object shaped differently from the one right before a correct object at the same caption position?
-
-Teacher forcing on Base CHAIR captions (all captions with a labelled mention). At every text layer
-and head, from the query that predicts each mention's first token (and, head-averaged, from every
-caption query), the attention restricted to the image keys:
-  mass     share of the row's attention that lands on image keys
-  entropy  entropy of the attention within the image keys / log(#image keys)
-  top1pct  share of the image attention on the row's own top 1% image keys
-  sink     share of the image attention on this caption's "sink" image keys: the top 1% by attention
-           received, averaged over heads and all caption queries of that layer
-Rows whose image keys are all masked (Gemma sliding-window layers past 512 positions) are NaN.
-Labels: caption-selfcheck-20261030 (kind, margin). Unit in the analysis: first mention of each (image, object).
-
-Decision rule, fixed before the run. Main metrics: head mean, then mean over the main layers
-(Qwen: all; Gemma: its full-attention layers), of entropy and of sink share.
-  difference  position-stratified hallucinated - correct difference has a 95% CI (cluster bootstrap over
-              images) that excludes 0, AND the position-adjusted AUROC of that metric is <= 0.45 or >= 0.55,
-              for entropy or sink share -> go to step 1
-  otherwise   no difference -> drop the design
-
-  collect:    --model M --output DIR --start S --end E
-  summarize:  --model M --output DIR --summarize
-"""
 import argparse,glob,json,math,os,sys,time,traceback
 from pathlib import Path
 import numpy as np
@@ -41,15 +17,15 @@ class Tap:
         if i is not None and self.on:self.calls+=1;self.reduce(i,w)
         return out,w
     def reduce(self,i,w):
-        A=w[0][:,self.rows][:,:,self.img].float()  # [H, T, N]
+        A=w[0][:,self.rows][:,:,self.img].float()
         N=A.shape[-1];k=max(1,math.ceil(0.01*N))
         mass=A.sum(-1);ok=mass>1e-6;P=A/mass.clamp_min(1e-12)[...,None]
         ent=-(P*P.clamp_min(1e-12).log()).sum(-1)/math.log(N);top=P.topk(k,-1).values.sum(-1)
         recv=(A*ok[...,None]).sum((0,1))/ok.sum().clamp_min(1);sink=recv.topk(k).indices;sk=P[...,sink].sum(-1)
-        M=torch.stack([mass,ent,top,sk])  # [4, H, T]
+        M=torch.stack([mass,ent,top,sk])
         M[1:][:,~ok]=float('nan')
-        self.ment[i]=M[:,:,self.mrows].permute(1,0,2).half().cpu()  # [H, 4, M]
-        self.pos[i]=M.nanmean(1).half().cpu() if hasattr(torch,'nanmean') else M.mean(1).half().cpu()  # [4, T]
+        self.ment[i]=M[:,:,self.mrows].permute(1,0,2).half().cpu()
+        self.pos[i]=M.nanmean(1).half().cpu() if hasattr(torch,'nanmean') else M.mean(1).half().cpu()
 
 def collect(a):
     from tether.models.backend import load_adapter
@@ -87,14 +63,13 @@ def collect(a):
                 try:m(**br,use_cache=False,return_dict=True)
                 finally:tap.on=False
             assert tap.calls==NL,(tap.calls,NL)
-            recs.append({'image_id':iid,'T':T,'n_image':int(len(tap.img)),'mentions':info,'ment':torch.stack(tap.ment),'pos':torch.stack(tap.pos)})  # [L,H,4,M], [L,4,T]
+            recs.append({'image_id':iid,'T':T,'n_image':int(len(tap.img)),'mentions':info,'ment':torch.stack(tap.ment),'pos':torch.stack(tap.pos)})
             torch.cuda.empty_cache()
             if n%20==0:update(done=n+1,sec_per_caption=(time.time()-t0)/(n+1))
         torch.save({'records':recs,'n_layers':NL,'full_attention_layers':full,'metrics':METRICS},out/f'{tag}.pt');update(stage='complete',done=len(rows),records=len(recs))
     except BaseException:
         update(stage='failed',error=traceback.format_exc());raise
 
-# ------------------------------------------------------------------ analysis
 def auroc(s,y):
     s=np.asarray(s,float);y=np.asarray(y).astype(bool);ok=~np.isnan(s);s,y=s[ok],y[ok];p=int(y.sum());n=len(y)-p
     if p==0 or n==0:return float('nan')
@@ -131,25 +106,23 @@ def summarize(a):
     for r in recs:
         for j,x in enumerate(r['mentions']):
             if not x['first']:continue
-            mj=r['ment'][:,:,:,j].float()  # [L,H,4]
+            mj=r['ment'][:,:,:,j].float()
             V.append(torch.nanmean(mj,1).numpy() if hasattr(torch,'nanmean') else mj.mean(1).numpy());head.append(mj.numpy())
             h.append(x['kind']=='hallucinated');t.append(x['t']);g.append(r['image_id'])
-    V=np.stack(V);head=np.stack(head);h=np.array(h);b=np.array([binof(x) for x in t]);g=np.array(g)  # V [n,L,4]
+    V=np.stack(V);head=np.stack(head);h=np.array(h);b=np.array([binof(x) for x in t]);g=np.array(g)
     out={'model':a.model,'captions':len(recs),'first_mentions':int(len(h)),'hallucinated':int(h.sum()),'main_layers':main,
          'note':'AUROC > 0.5: the metric is higher before hallucinated objects; adjusted = metric minus its position-bin mean'}
     out['main']={mt:test(np.nanmean(V[:,main,k],1),h,b,g) for k,mt in enumerate(METRICS)}
     out['per_layer']={mt:[test(V[:,l,k],h,b,g,n=300) for l in range(NL)] for k,mt in enumerate(METRICS)}
-    # heads: position-adjusted AUROC for every (layer, head); selection over many heads, so descriptive only
     hl={}
     for k,mt in enumerate(METRICS[1:],1):
         A=np.array([[adj_auroc(head[:,l,hh,k],h,b) for hh in range(head.shape[2])] for l in range(NL)]);top=np.argsort(-np.abs(np.nan_to_num(A-0.5)).ravel())[:10]
         hl[mt]={'top10_by_abs_auroc_minus_half':[{'layer':int(i//A.shape[1]),'head':int(i%A.shape[1]),'auroc':float(A.ravel()[i])} for i in top],
                 'share_heads_auroc_outside_0.45_0.55':float(np.mean(np.abs(np.nan_to_num(A-0.5))>=0.05))}
     out['heads']=hl
-    # position trend over all caption queries (head mean, main layers)
     pos={mt:[[] for _ in BINS[:-1]] for mt in METRICS}
     for r in recs:
-        P=r['pos'].float().numpy()  # [L,4,T]
+        P=r['pos'].float().numpy()
         for k,mt in enumerate(METRICS):
             x=np.nanmean(P[main,k],0)
             for bi in range(len(BINS)-1):

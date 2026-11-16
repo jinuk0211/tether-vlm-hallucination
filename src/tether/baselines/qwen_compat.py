@@ -1,7 +1,3 @@
-"""Qwen inputs and device moves around the unchanged author functions.
-
-No model is loaded on import. Unlike Gemma, Qwen does not need a token-identity PLE proxy.
-"""
 import contextlib
 
 import numpy as np
@@ -11,13 +7,6 @@ from tether.baselines.author_bridge import grains_context as original_grains_con
 
 
 class QwenAttributionAPI:
-    """Co-locate returned hidden states for the author's unchanged torch.stack.
-
-    The original helper stacks last-token states across layers before moving
-    them to CPU. Model-parallel Qwen can return those states on two devices.
-    Copying them to the input device preserves values, dtype, shape and order.
-    Native forward, gradients, token IDs and logits are otherwise unchanged.
-    """
     def __init__(self, model):
         self.native = model
         self.moved_hidden_state_tensors = 0
@@ -69,4 +58,3 @@ def grains_on_qwen_layer_device(adapter, vector, authors, diagnostics=None):
     if diagnostics is not None:
         diagnostics['steering_vector_device'] = str(device)
         diagnostics['architecture'] = 'native_qwen2_5_vl'
-

@@ -1,12 +1,6 @@
-"""Join the row pieces of every setting into runs/<set>_test150_all/<tag>-0-150.jsonl: rows 0-59 from the 60-image runs,
-60-149 from the 120- and 150-image extensions, whichever complete pieces cover them. Every piece must match
-sets/<set>_test150.jsonl id for id, and all rows of a tag must carry the same setting (older rows predate --bpos and --norm,
-so a missing key counts as its default: bpos False, norm 'raw').
-usage: python -m tether.experiments.join_150 [--check]      (--check: only report coverage, write nothing)"""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');N=150;CHECK='--check' in sys.argv
-# only settings with a significant headline gain at 60 images (+ base, main, mainMed); the other 7 were dropped
 TAGS='base main mainMed s16a1bl2p1 s16a1 s16a1bl1 s16a2bl1p05 bl1'.split()
 DIRS={'chair':['chair_test60','chair_test60_sweep','chair_test120','chair_test150'],'amber':['amber_test60','amber_test150'],
       'throne':['throne_test60','throne_test120','throne_test150']}

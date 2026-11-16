@@ -1,4 +1,3 @@
-"""Qwen REVIS/VTI extraction through the native code path."""
 import argparse
 import hashlib
 import json

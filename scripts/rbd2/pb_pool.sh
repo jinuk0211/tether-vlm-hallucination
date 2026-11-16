@@ -1,8 +1,4 @@
 #!/bin/bash
-# 150-image extension: any number of workers share one queue; a unit is claimed with mkdir (atomic), so each runs once.
-# Queue lines "DATA OUTDIR TAG START END args..." -> decoding.vdd on sets/DATA.jsonl rows START-END into runs/OUTDIR/TAG-START-END.jsonl
-# (partial rows are resumed). A failed unit drops its claim and is retried once in the second pass.
-# usage: pb_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims150; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

@@ -1,23 +1,3 @@
-"""E0' analysis: per-layer linear probes on analysis/probe/collect.py output.
-
-Targets   T1  margin < 0          asked "Is there a {node}?", the model would deny it
-          T2  kind == hallucinated (CHAIR ground truth)
-Features  F1  h_real at the query that predicts the mention (where decoding could intervene)
-          F2  h_gray, same position, same caption, gray image: what the text alone gives away
-          F4  h_real - h_gray: the image's part only
-          F1b / F2b  the same at the mention token itself
-          F3  [log p of the mention token, object order, caption position]  (confidence floor)
-Unit: first mention of each (image, object). Image-level 5-fold CV. Inside each training fold:
-standardize, PCA (<= 256 components, whitened), logistic regression (class-balanced) with L2 picked
-from a grid by an inner image-level 3-fold CV. AUROC on pooled out-of-fold scores; 95% CIs and the
-F1 - F2 difference by cluster bootstrap over images.
-Decision rules, fixed before the run (T1, F1 at its best layer):
-  pass            F1 >= 0.85 and F1 - F2 >= 0.10              -> go to steering
-  language prior  F1 - F2 < 0.05                              -> read-steering off, keep B only
-  no gain         F1 - F3 < 0.05                              -> off
-  otherwise ambiguous (e.g. 0.75-0.85)                        -> run the remaining captions
-Reference: T2 AUROC of the question-mode margin itself on the same mentions (recovery = F1 / that).
-"""
 import argparse,json,sys
 from pathlib import Path
 import numpy as np
@@ -37,7 +17,6 @@ def fold_ids(groups,k,seed):
     return np.array([f[g] for g in groups])
 
 def prep(Xtr,Xte,dim=256):
-    """per layer: standardize on the training rows, PCA (exact SVD, batched over layers), whiten. X [layers, n, D]"""
     mu=Xtr.mean(1,keepdim=True);sd=Xtr.std(1,keepdim=True)+1e-4;Xtr=(Xtr-mu)/sd;Xte=(Xte-mu)/sd
     if Xtr.shape[2]>dim:
         _,_,Vh=torch.linalg.svd(Xtr,full_matrices=False);V=Vh[:,:min(dim,Xtr.shape[1]-1)].transpose(1,2)
@@ -45,8 +24,6 @@ def prep(Xtr,Xte,dim=256):
     return Xtr,Xte
 
 def fit(Z,Y):
-    """Z [k,n,d], Y [n,t] -> W [k,d,t,g], b [k,t,g]: one class-balanced L2 logistic per layer, target and grid value.
-    The objective is a sum of independent convex problems, so they are fitted jointly."""
     k,t,g=Z.shape[0],Y.shape[1],len(GRID);l2=GRID.to(Z.device)
     W=torch.zeros(k,Z.shape[2],t,g,device=Z.device,requires_grad=True);b=torch.zeros(k,t,g,device=Z.device,requires_grad=True)
     pw=((len(Y)-Y.sum(0))/Y.sum(0).clamp_min(1))[:,None].expand(t,g)
@@ -60,7 +37,6 @@ def fit(Z,Y):
 def score(Z,W,b):return (torch.einsum('knd,kdtg->kntg',Z,W)+b[:,None]).cpu().numpy()
 
 def cv(X,Y,groups,outer=5,inner=3,seed=0):
-    """X [n, layers, D] -> out-of-fold scores [layers, n, targets] and the chosen L2 per fold/layer/target"""
     X=X.float().to(DEV).transpose(0,1);Yt=torch.from_numpy(Y).float().to(DEV);K=X.shape[0]
     S=np.zeros((K,)+Y.shape);fo=fold_ids(groups,outer,seed);chosen=[]
     for f in range(outer):

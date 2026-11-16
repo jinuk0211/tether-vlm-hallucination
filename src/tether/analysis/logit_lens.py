@@ -1,33 +1,3 @@
-"""Logit lens for the CHAIR captioning setup (Qwen2.5-VL-7B, Gemma 4 E4B).
-
-Every hidden state is read the standard way: final norm -> unembedding (-> Gemma's final logit softcap)
--> softmax over the vocabulary. Layer 0 = embedding output, layer l = output of decoder layer l; at the
-last layer this reproduces the model's own output, which is checked on every item.
-
-image    Image-token lens (as in Jiang et al. 2024, Neo et al. 2024). One prefill per CHAIR image with the
-         Base prompt. Image tokens come before any text, so their states do not depend on the caption.
-         Per layer and per COCO object (80): the highest probability any image token gives to the object's
-         word tokens (first token of each single-word CHAIR synonym, with/without a leading space,
-         lower/capitalised), the mean of its 5 highest patches, and which patch gives the maximum.
-         Plus the top-5 tokens of every patch at 25/50/75/100% depth, for looking at the patch grid.
-text     Caption-position lens (nostalgebraist 2020). Teacher forcing on the Base caption. At every caption
-         position and layer: log p and rank of the token that was written, the top-1 token, and KL from
-         the final-layer distribution. Object mentions (CHAIR nodes, first token) are marked with their kind.
-analyze  CPU only. Image lens, per layer, AUROC of the image-token confidence for
-           presence      GT objects vs the other COCO objects (all 80 per image)
-           hallucinated  correctly mentioned (positive) vs hallucinated objects
-           missed        GT objects the caption did not mention (positive) vs absent, unmentioned objects
-         pooled and within object (mean over objects with >= 5 of each class); 95% CI by image-cluster
-         bootstrap at the best layer (chosen on the same data, so slightly optimistic); Spearman with the
-         question-mode margin from caption-selfcheck. Text lens: top-1 rate / log p of the written token and
-         KL to the final layer by caption position; at object mentions the layer from which the written
-         object stays top-1, hallucinated vs correct, position-matched.
-Writes only under --output.
-
-  python -m tether.analysis.logit_lens image   --model qwen --output DIR [--start S --end E]
-  python -m tether.analysis.logit_lens text    --model qwen --output DIR [--start S --end E]
-  python -m tether.analysis.logit_lens analyze --model qwen --output DIR      (writes {model}-lens-summary.json, .html)
-"""
 import argparse,glob,json,math,os,sys,time,traceback
 from pathlib import Path
 import numpy as np
@@ -38,38 +8,31 @@ DEPTHS=(0.25,0.5,0.75,1.0)
 KS=(1,5,10)
 TOPK=100
 TOPK_KS=(1,5,10,50,100)
-BAND={'qwen':range(22,28),'gemma':range(30,42)}  # layers where written words start to appear in the lens
+BAND={'qwen':range(22,28),'gemma':range(30,42)}
 PB=[0,32,64,96,128,192,256,384,513]
 
-# ------------------------------------------------------------------ collection
 def load(a):
     from tether.analysis.read_gap import collect as C
     from tether.analysis.visual_decay.collect import CHAIR, Resid
     from tether.models.backend import load_adapter, _first_path
     config=json.loads((C.MODELS[a.model]/'config.json').read_text())['model']
-    if a.cpu_smoke:  # code-path check only; numbers are not comparable to the bf16 runs
+    if a.cpu_smoke:
         assert os.environ.get('CUDA_VISIBLE_DEVICES')=='';config=dict(config,device='cpu',dtype='float32')
     else:assert os.environ['CUDA_VISIBLE_DEVICES'] and torch.cuda.device_count()==1
     adapter=load_adapter(config);m=adapter.model
     for p in m.parameters():p.requires_grad_(False)
     norm=_first_path(m,('model.language_model.norm','language_model.model.norm','model.norm'));head=m.get_output_embeddings()
     cap=getattr(m.config.get_text_config(),'final_logit_softcapping',None)
-    def lens(h):  # [n, D] -> [n, V] float logits
-        lg=head(norm(h))  # softcap in the model's dtype, as the model does, so the last layer reproduces its output
+    def lens(h):
+        lg=head(norm(h))
         return (torch.tanh(lg/cap)*cap if cap else lg).float()
     return C,CHAIR,Resid,adapter,lens
 
 def object_tokens(tok,scorer):
-    """CHAIR object -> token ids that name it. Words: every single-word synonym, and the last word (head noun) of
-    multi-word ones; spellings with/without a leading space, lower/capitalised. Only words that are a single token
-    (>= 3 letters) count: word pieces such as "bicy" (bicyclist -> person) or "street" (streetlight) would fire on
-    other things. A token claimed by several objects goes to the object for which it is a whole single-word synonym
-    ("dog" -> dog, not hot dog); if that does not decide, it is dropped. Objects left without a token get an empty
-    list (the lens skips them and lists them)."""
     syn={}
     for s,n in scorer.inverse_synonym_dict.items():
         if n.strip():syn.setdefault(n,set()).add(s)
-    cand={}  # node -> {token: strength}; 2 = the token is a whole single-word synonym, 1 = head noun / word start
+    cand={}
     for n,ss in syn.items():
         for s in ss:
             w=s.split()[-1]
@@ -98,7 +61,7 @@ def image_labels(C,CHAIR,model):
 
 def run(a,body):
     out=a.output;out.mkdir(parents=True,exist_ok=True);torch.manual_seed(42)
-    tag=f'{a.model}-{a.mode}-{a.start}-{a.end}';status=out/f'{tag}-status.json';status.unlink(missing_ok=True)  # no stale fields from an earlier run
+    tag=f'{a.model}-{a.mode}-{a.start}-{a.end}';status=out/f'{tag}-status.json';status.unlink(missing_ok=True)
     def update(**k):
         s=json.loads(status.read_text()) if status.exists() else {}
         s.update(k,updated_at=time.time());status.write_text(json.dumps(s,indent=1))
@@ -177,8 +140,6 @@ def text_mode(a,update):
     return {'records':recs,'n_layers':NL,'last_layer_max_logp_err':err}
 
 def detect_mode(a,update):
-    """How often does an object's word actually appear when the image tokens are read as words? Per layer and object:
-    the number of patches whose top-1 / top-5 / top-10 lens tokens contain one of the object's tokens."""
     C,CHAIR,Resid,adapter,lens=load(a)
     from tether.eval.chair_scorer import chair_scorer
     m=adapter.model;tok=adapter.processor.tokenizer;layers=adapter.layers;NL=len(layers);res=Resid(layers);dev=adapter.device
@@ -209,8 +170,6 @@ def detect_mode(a,update):
     return {'records':recs,'nodes':nodes,'token_ids':{n:ids[n] for n in nodes},'n_layers':NL,'ks':KS,'last_layer_max_prob_err':err}
 
 def topk_mode(a,update):
-    """Caption-position lens, top-100: every object-word token among the top 100 lens tokens, per layer and position
-    (columns: layer, caption position, rank, object index, token). Only these hits are saved, not the 100 words."""
     C,CHAIR,Resid,adapter,lens=load(a)
     from tether.eval.chair_scorer import chair_scorer
     from tether.decoding.selfverify import mention_token_positions
@@ -247,7 +206,6 @@ def topk_mode(a,update):
         if n%10==0:update(done=n+1,sec_per_caption=(time.time()-t0)/(n+1),last_layer_max_logp_err=err,max_gpu_gb=torch.cuda.max_memory_allocated()/2**30 if dev.type=='cuda' else None)
     return {'records':recs,'nodes':nodes,'n_layers':NL,'topk':TOPK,'last_layer_max_logp_err':err}
 
-# ------------------------------------------------------------------ analysis
 def auroc(s,y):
     s=np.asarray(s,float);y=np.asarray(y).astype(bool);ok=~np.isnan(s);s,y=s[ok],y[ok];p=int(y.sum());n=len(y)-p
     if p==0 or n==0:return float('nan')
@@ -299,7 +257,7 @@ def analyze_image(D):
     out['question_margin_auroc_hallucinated']=auroc(mg[men&rows],(~hal)[men&rows])
     grids=[]
     for r in recs[:3]:
-        l=sorted(r['top1_str'])[-2] if len(r['top1_str'])>1 else max(r['top1_str']);  # 75% depth: the last layer decodes next-token guesses
+        l=sorted(r['top1_str'])[-2] if len(r['top1_str'])>1 else max(r['top1_str']);
         s=[x.strip()[:8] or '_' for x in r['top1_str'][l]];w=r['grid'][1] if r['grid'] else 16
         grids.append({'image_id':r['image_id'],'layer':l,'gt':r['labels']['gt'],'hallucinated':r['labels']['hallucinated'],'rows':[' '.join(s[i:i+w]) for i in range(0,len(s),w)]})
     out['patch_top1_examples']=grids
@@ -318,7 +276,6 @@ def analyze_text(D):
     lab=[f'{BINS[i]}-{BINS[i+1]-1}' for i in range(nb)]
     out={'captions':len(recs),'n_layers':NL,'last_layer_max_logp_err':max(d['last_layer_max_logp_err'] for d in D),'bins':lab,
          'by_position':{k:[[float(np.mean(c)) if c else None for c in row] for row in v] for k,v in acc.items()}}
-    # object mentions: layer from which the written object stays top-1 (NL+1 = not top-1 at the output)
     E=[];h=[];b=[];g=[];LP=[];T1=[]
     for r in recs:
         rk=r['rank'].numpy();lp=r['logp'].float().numpy()
@@ -352,14 +309,12 @@ def object_class(n,L):
     return 'hallucinated' if n in H else 'correct' if n in M and n in GT else 'missed' if n in GT else 'absent' if n not in M else None
 
 def within_diff(x,c,nd,a,b,min_each=5):
-    """mean over objects seen at least min_each times in both classes: detection rate in a minus in b"""
     d=[x[(c==a)&(nd==k)].mean()-x[(c==b)&(nd==k)].mean() for k in np.unique(nd) if ((c==a)&(nd==k)).sum()>=min_each and ((c==b)&(nd==k)).sum()>=min_each]
     return (float(np.mean(d)) if d else None),len(d)
 
 def detect_analyze(a):
-    """Detection rates: image tokens (any patch) and caption positions (lens top-1 at any position of that caption)."""
     D=torch.load(a.output/f'{a.model}-detect-0-500.pt',weights_only=False);nodes=D['nodes'];NL=D['n_layers'];recs=D['records'];ids=D['token_ids']
-    C=np.stack([r['count'].numpy() for r in recs]).transpose(0,3,1,2).reshape(-1,NL+1,len(KS))  # [pairs, layers, ks]
+    C=np.stack([r['count'].numpy() for r in recs]).transpose(0,3,1,2).reshape(-1,NL+1,len(KS))
     nd=np.array([n for r in recs for n in nodes]);c=np.array([object_class(n,r['labels']) or 'other' for r in recs for n in nodes])
     pairs=(('correct','hallucinated'),('missed','absent'),('hallucinated','absent'))
     out={'model':a.model,'images':len(recs),'objects':len(nodes),'ks':list(KS),'class_counts':{k:int((c==k).sum()) for k in CLASSES},'image_tokens':{},'caption_positions':{}}
@@ -369,7 +324,6 @@ def detect_analyze(a):
             'patches_when_detected':{cl:[float(C[:,l,ki][(c==cl)&x[:,l]].mean()) if ((c==cl)&x[:,l]).any() else None for l in range(NL+1)] for cl in CLASSES},
             'within_object':{f'{p}-{q}':[within_diff(x[:,l].astype(float),c,nd,p,q)[0] for l in range(NL+1)] for p,q in pairs},
             'objects_used':{f'{p}-{q}':within_diff(x[:,NL].astype(float),c,nd,p,q)[1] for p,q in pairs}}
-    # caption positions, from the stored lens top-1 tokens. Written objects count only before their first mention (else trivial).
     T=torch.load(a.output/f'{a.model}-text-0-500.pt',weights_only=False)['records'];lab={r['image_id']:r['labels'] for r in recs};rows=[]
     for r in T:
         t1=r['top1'].numpy();first={}
@@ -395,11 +349,6 @@ def detect_analyze(a):
     print('wrote',p)
 
 def topk_analyze(a):
-    """Later in the caption, do hallucinated objects appear more among a middle-layer band's top-K lens words? Unit: one object
-    at one caption position, hit if any band layer has its word in the top K. Hits equal to the input token or to the token
-    written at that position are dropped. Rates are per object, so classes with few objects (hallucinated) and many
-    (absent) compare directly; "excess" subtracts the same object's rate at the same position bin when it is absent and
-    unwritten (chance hits, generic words). Written objects are split into before / after their first mention."""
     D=[torch.load(f,weights_only=False) for f in sorted(glob.glob(str(a.output/f'{a.model}-topk-*-*.pt')))];nodes=D[0]['nodes'];N=len(nodes);ni={n:i for i,n in enumerate(nodes)}
     recs=[r for d in D for r in d['records']];band=set(BAND[a.model]);nb=len(PB)-1;nk=len(TOPK_KS);assert len({r['id'] for r in recs})==len(recs)
     CL=('hall_before','hall_after','correct_before','correct_after','missed','absent')

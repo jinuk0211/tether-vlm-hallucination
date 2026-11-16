@@ -1,35 +1,3 @@
-"""Does the image fade out of the decoder as a caption gets longer? (teacher forcing on Base captions)
-
-Teacher forcing on the verified Base CHAIR captions is the same computation as greedy
-decoding with a KV cache, up to numerics. "Step t" is the position that predicts caption
-token t (capstart-1+t), i.e. the query that produced token t.
-
-E1 attention   per text layer, head-mean attention from step t onto key groups
-               pre-image (template/system tokens before the image, where the attention sinks
-               sit) / image / prompt after the image / earlier caption / last 16 caption
-               tokens; fraction of image keys the layer's mask lets step t see (Gemma's
-               sliding-window layers lose the image past 512 positions); attention received
-               by every prompt position and its hidden-state norm (to locate sinks); attention
-               rollout (0.5A+0.5I, head mean) with image tokens absorbing, i.e. the share of
-               attention paths from step t that end on an image token. Plain rollout drains
-               into the first tokens in a causal decoder and reads ~0 for the image.
-E2 lens/repr   real image vs gray image under the same caption. For the embedding output and
-               every decoder layer, at every step: logit-lens log p(next caption token)
-               (final norm + lm_head + softcap), ||h||, ||h_real-h_gray||, cos(h_real,h_gray),
-               cos(h_real, mean image-token state of that layer), raw and centred on the mean
-               text state. Hidden states at four relative depths x fixed steps (real and gray)
-               and the mean image-token state, for linear probes.
-E3 causal      log p, KL to the unmodified run and greedy agreement for every caption token
-               under: gray image / another COCO image / image keys blocked for steps >= k
-               (k = 0, 32, 64, 128) in all layers / steps >= 0 in the first or second half of
-               the layers. Blocking acts on attention weights only, so with k > 0 the caption
-               tokens before k keep whatever they read from the image (the KV-cache path).
---regenerate   decode the caption greedily in this process instead of reading the stored Base
-               caption (use it when the stored captions are not this setup's greedy output:
-               see greedy_reproduced in the status file). Hallucination labels then come from
-               the CHAIR ground truth of the image, exactly as CHAIR scores them.
-Writes only under --output.
-"""
 import argparse,json,os,sys,time,traceback
 from pathlib import Path
 import torch
@@ -47,18 +15,13 @@ KO_FROM=(0,32,64,128)
 RECENT=16
 
 class AttnTap:
-    """Replaces the modeling module's eager attention for text decoder layers only.
-
-    ko     : (q0, layer set) -> image keys masked out for query positions >= q0 in those layers
-    record : dict -> per-layer reductions of the head-mean attention of this forward
-    """
     def __init__(self,module,text_attn):
         self.idx={id(a):i for i,a in enumerate(text_attn)};self.ko=None;self.record=None;self.calls=0
         self.module=module;self.orig=module.eager_attention_forward
         module.eager_attention_forward=self.forward
     def forward(self,mod,query,key,value,attention_mask,*args,**kw):
         i=self.idx.get(id(mod))
-        if i is None:return self.orig(mod,query,key,value,attention_mask,*args,**kw)  # vision tower
+        if i is None:return self.orig(mod,query,key,value,attention_mask,*args,**kw)
         self.calls+=1
         if self.ko is not None and i in self.ko[1]:
             Lq,Lk=query.shape[2],key.shape[2];assert Lq==Lk,'knockout needs a full (uncached) forward'
@@ -76,11 +39,10 @@ class AttnTap:
         if mask is not None:
             vis=mask[0,0][q][:,self.img]>torch.finfo(mask.dtype).min/2;R['visible'][i]=vis.float().mean(-1)
         else:R['visible'][i]=torch.ones(len(q),device=A.device)
-        n=A.shape[0];eye=torch.eye(n,device=A.device);Ap=0.5*A+0.5*eye;Ap[self.img]=eye[self.img]  # image tokens absorb
+        n=A.shape[0];eye=torch.eye(n,device=A.device);Ap=0.5*A+0.5*eye;Ap[self.img]=eye[self.img]
         R['roll']=Ap@R['roll']
 
 class Resid:
-    """Residual stream: embedding output (index 0) and the output of every decoder layer."""
     def __init__(self,layers):
         self.on=False;self.h=[None]*(len(layers)+1)
         layers[0].register_forward_pre_hook(self.pre,with_kwargs=True)
@@ -97,7 +59,7 @@ def cos(a,b):return torch.nn.functional.cosine_similarity(a,b,dim=-1)
 def main(a):
     out=a.output;out.mkdir(parents=True,exist_ok=True)
     config=json.loads((C.MODELS[a.model]/'config.json').read_text())['model']
-    if a.cpu_smoke:  # code-path check without a GPU; numbers are not comparable to the bf16 runs
+    if a.cpu_smoke:
         assert os.environ.get('CUDA_VISIBLE_DEVICES')=='';config=dict(config,device='cpu',dtype='float32')
     else:assert os.environ['CUDA_VISIBLE_DEVICES'] and torch.cuda.device_count()==1
     torch.manual_seed(42)
@@ -135,7 +97,7 @@ def main(a):
             if a.regenerate:pred=adapter.generate(adapter.prepare(r['image'],r['prompt']),int(r['max_new_tokens']))
             else:pred=r['prediction']
             if not pred.strip():continue
-            gt=scorer.imid_to_objects[int(r['metadata']['image_id'])]  # CHAIR's own ground truth
+            gt=scorer.imid_to_objects[int(r['metadata']['image_id'])]
             other=allrows[(gi+len(allrows)//2)%len(allrows)]['image']
             br=adapter.prepare(r['image'],r['prompt'],answer=pred);bg=adapter.prepare(str(gray),r['prompt'],answer=pred)
             bs=adapter.prepare(other,r['prompt'],answer=pred)
@@ -149,13 +111,10 @@ def main(a):
                     (k>=capstart)&(k<=qq),(k>=capstart)&(k<=qq)&(k>qq-RECENT)]
             groups=[g.float() for g in groups]
             with torch.no_grad():
-                # unmodified run: attention reductions + residual stream
                 tap.record={'q':q,'groups':groups,'capstart':capstart,'attn':[None]*NL,'key_recv':[None]*NL,'visible':[None]*NL,'roll':torch.eye(L,device=dev)}
                 tap.calls=0;res.on=True;o=m(**br,use_cache=False,return_dict=True);res.on=False
                 rec=tap.record;tap.record=None;assert tap.calls==NL,(tap.calls,NL)
                 Hr=list(res.h);lg=o.logits[0,q].float();lpb=lg.log_softmax(-1);del o
-                # greedy under the model's generation config: Qwen's sets repetition_penalty=1.05, which
-                # HF applies even with do_sample=False, over every id seen so far (prompt included)
                 if rp!=1.0:
                     seen=torch.zeros_like(lg,dtype=torch.bool);seen[:,ids[:capstart]]=True
                     for t in range(1,T):seen[t:,ids[capstart+t-1]]=True
@@ -163,10 +122,8 @@ def main(a):
                 greedy_cfg=(lg.argmax(-1)==tgt).cpu();del lg
                 roll=rec['roll'][q];rollout=torch.stack([(roll*g).sum(-1) for g in groups])
                 prompt_norm=torch.stack([h[:capstart].float().norm(dim=-1) for h in Hr]).half().cpu()
-                # gray image, same caption
                 res.on=True;o=m(**bg,use_cache=False,return_dict=True);res.on=False;Hg=list(res.h)
                 lens_r=torch.stack([lens(h,q,tgt) for h in Hr]);lens_g=torch.stack([lens(h,q,tgt) for h in Hg])
-                # the lens at the last layer must reproduce the model output (bf16 matmul tiling aside)
                 lens_err=max(lens_err,float((lens_r[-1]-lpb.gather(-1,tgt[:,None])[:,0]).abs().max()));assert lens_err<0.5,lens_err
                 rep=[]
                 for hr_,hg_ in zip(Hr,Hg):

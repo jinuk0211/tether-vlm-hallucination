@@ -1,12 +1,4 @@
 #!/bin/bash
-# THRONE rows 1000-4999 (t4k_chain.sh): decode worker. Queue lines "KIND SET OUTDIR TAG START END args..." -> runs/OUTDIR/TAG-START-END.jsonl
-# (the decoders resume partial files), with the decoder and environment of the pool that made the 1,000-image rows:
-#   qb  baselines/bench_qwen.py --method TAG       (pb_bl_pool.sh)      gb  baselines/bench_gemma.py --method TAG                     (gemma_pool.sh)
-#   qv  decoding/vdd.py --model qwen           (pb_pool.sh)         gv  decoding/vdd.py --model gemma --attn eager        (gemma_pool.sh)
-#   v4q decoding/vdd_vobj.py --model qwen          (vdd4_pool.sh)       v4g decoding/vdd_vobj.py --model gemma                    (vdd4_pool.sh)
-# A unit is claimed with mkdir in claims_t4k only when the GPU has the model's MiB free twice, 10-30 s apart. CUDA out-of-memory is not counted
-# (back off 1-3 min); other failures twice -> skipped. Leaves as soon as no unit is left to claim (units other workers hold are theirs), so the
-# slot moves on to judging. The file t4k/STOP makes it leave after its current unit.     usage: t4k_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; LG=$O/logs; C=$O/claims_t4k; mkdir -p $LG $C $L/.cache/tmp $O/t4k
 export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \

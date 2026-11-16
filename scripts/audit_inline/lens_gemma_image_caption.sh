@@ -1,8 +1,4 @@
 #!/bin/bash
-# Table A.5 upper rows (Gemma) and the caption-position lens summary; wrote gemma-lens-summary.json
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_gemma_image_caption.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R; O=$R/outputs/logit-lens-20261104
 for i in $(seq 1 110); do [ -f $O/logs/gemma-image-done ] && break; sleep 5; done
 cat $O/logs/gemma-image-done 2>/dev/null; python3 -c "import json;d=json.load(open('$O/gemma-image-0-500-status.json'));print('gemma image',d['stage'],d.get('done'),d.get('sec_per_image'),d.get('last_layer_max_prob_err'),d.get('objects_without_token'),(d.get('error') or '')[-300:])"

@@ -1,14 +1,3 @@
-"""Existing baselines on the caption test sets (chair_test60, amber_test60, throne_test60), through the functions
-and fitted artifacts of the verified Qwen CHAIR/POPE test run (original-vti-gpu1-final):
-  base           adapter.generate, BF16
-  revis          own implementation: artifacts/revis.pt + build_baseline, BF16
-  rudder_clone   author RUDDER, caption profile (layer 25, alpha 5), BF16
-  grains_clone   author GrAInS + grains-author.pt (layer 27, alpha 10), FP16 weights, FP32 attention scores
-  vti_author     author VTI + vti-author.pt (visual and text alpha 0.9), FP16 weights, FP32 attention scores
-Only the GPU-UUID/lease/protocol guards of the original workers are dropped. Greedy, seed 42 per image, the set's
-max_new_tokens. --attn sdpa is for BF16 methods only (the FP16 guard patches eager attention).
-Rows: {output}/{method}-{start}-{end}.jsonl (resumable), same row format as the rbd2 runs.
-"""
 import argparse,contextlib,hashlib,json,os,time,traceback
 from pathlib import Path
 import torch
@@ -28,7 +17,6 @@ def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 def setup(m,adapter,config):
-    """Return ctx(batch, diag): the method's intervention for one image; diag collects its diagnostics."""
     if m=='base':return lambda batch,diag:contextlib.nullcontext()
     if m=='revis':
         art=torch.load(Q/'artifacts/revis.pt',map_location='cpu',weights_only=True)
@@ -43,7 +31,6 @@ def setup(m,adapter,config):
         authors=load_authors();art=torch.load(Q/'grains-author.pt',map_location='cpu',weights_only=True)
         vector=art['vector'].to(adapter.device);assert vector.dtype==torch.float32,'Keep the original author vector dtype'
         return lambda batch,diag:grains_on_qwen_layer_device(adapter,vector,authors,diag)
-    # vti_author: author VTILayers stay installed for the whole process, as in baselines/vti_author.py
     from tether.baselines import vti_author as original
     _,layers=original.imports();art=torch.load(VTI,map_location='cpu',weights_only=True)
     assert art['author_commit']==original.COMMIT and art['author_source_hashes']==original.verify_author()

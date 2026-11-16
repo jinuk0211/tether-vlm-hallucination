@@ -1,4 +1,3 @@
-"""FP16 weights/outputs with FP32 QK scores to prevent eager-attention overflow."""
 from contextlib import contextmanager
 import hashlib
 import inspect

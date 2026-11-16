@@ -1,7 +1,3 @@
-"""GrAInS vector for Qwen3-VL-8B, as baselines/grains_qwen.py did for Qwen2.5: unmodified author functions (upstream-author-20261026), the same fit50 records, FP32 weights,
-IG token ablation (top_k 50, pos), PCA at layer 27, alpha 10 at decoding. Differences: one A6000 instead of a 2-GPU pair; resumable per image; raw IG tensors not kept (disk).
-Layer 27 is the fixed value of the two earlier models (0-based; Qwen2.5 has 28 layers, Gemma 42, Qwen3 36).   Output: outputs/qwen3-vl8b/grains-author.pt
-usage: python -m tether.baselines.grains_qwen3 [LIMIT]"""
 import json,os,sys,time
 from pathlib import Path
 import numpy as np

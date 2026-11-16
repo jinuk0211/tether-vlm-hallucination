@@ -1,5 +1,3 @@
-"""Qwen3-VL-8B baseline runner for CHAIR 500 (RUDDER, REVIS, VTI).
-"""
 import argparse, contextlib, hashlib, json, os, time, traceback
 from pathlib import Path
 import torch

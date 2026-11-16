@@ -1,4 +1,3 @@
-# our method on full-THRONE 1000 (rows 0-499 = throne_test500 run), 2 judges only.
 throne_full1000 throne_full1000_ours s16a1bl2p1 500 550 --alpha 1 --layer 16 --lam 2 --pen 1
 throne_full1000 throne_full1000_ours s16a1bl2p1 550 600 --alpha 1 --layer 16 --lam 2 --pen 1
 throne_full1000 throne_full1000_ours s16a1bl2p1 600 650 --alpha 1 --layer 16 --lam 2 --pen 1

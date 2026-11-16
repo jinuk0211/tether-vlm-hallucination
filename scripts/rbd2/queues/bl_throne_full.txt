@@ -1,7 +1,3 @@
-# Base + existing baselines on full THRONE (5000 COCO val2017 images); CHAIR keeps the existing rows, no AMBER.
-# BF16 methods sdpa (eager BF16 writes addCriterion), FP16 methods eager + FP32 attention scores as in the verified test run.
-# 100-image chunks in id order, all methods per chunk, so any finished prefix is complete for every method.
-# first 1000 images only (ids in ascending order, = throne_full1000).
 vti_author eager throne_full throne_full_bl 0 100
 rudder_clone sdpa throne_full throne_full_bl 0 100
 base sdpa throne_full throne_full_bl 0 100

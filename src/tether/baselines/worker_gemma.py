@@ -1,4 +1,3 @@
-"""Generate all fixed cohorts through the cloned author functions."""
 import argparse
 import contextlib
 import hashlib

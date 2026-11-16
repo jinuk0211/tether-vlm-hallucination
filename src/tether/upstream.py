@@ -1,19 +1,15 @@
-"""Fetch the pinned upstream source checkouts on request; nothing runs on import."""
-
-from __future__ import annotations
-
 import json
 import subprocess
 from importlib.resources import files
 from pathlib import Path
 
 
-def source_catalog() -> dict:
+def source_catalog():
     text = files("tether").joinpath("resources/upstream.json").read_text(encoding="utf-8")
     return json.loads(text)
 
 
-def _git(arguments: list[str], path: Path) -> str:
+def _git(arguments, path):
     result = subprocess.run(
         ["git", *arguments],
         cwd=path,
@@ -25,8 +21,7 @@ def _git(arguments: list[str], path: Path) -> str:
     return result.stdout.strip()
 
 
-def fetch_sources(names: list[str], destination: str | Path) -> dict:
-    """Fetch only catalogued HTTPS repositories and verify the exact commit."""
+def fetch_sources(names, destination):
     catalog = source_catalog()["sources"]
     unknown = set(names) - catalog.keys()
     if unknown:

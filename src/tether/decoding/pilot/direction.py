@@ -1,6 +1,3 @@
-"""Mode direction d_l = mean h_l["describe appearance/arrangement"] - mean h_l["list every object"] at the last
-prompt position, every layer (index 0 = embeddings, l = output of decoder layer l). COCO train2014 probe images
-that are not in the dev split; never the CHAIR test images."""
 import argparse,json,os
 from pathlib import Path
 import torch

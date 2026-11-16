@@ -1,6 +1,4 @@
 #!/bin/bash
-# Qwen3-VL REVIS with the official code. Artifacts on GPU 5 (one Qwen3, waits for 18.9 GB free), then its 500 CHAIR units go into the running GrAInS chain's queue (queues/qbl.txt), after the
-# GrAInS units, so qbl_chain.sh's workers and report handle them and qbl_after.sh hands the GPUs over only after both. Log: logs/qbl.log. QBL_REVIS_FAILED if a stage stops.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 LOG=$O/logs/qbl.log; Q=$O/queues/qbl.txt; C=$1
 export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$R/src

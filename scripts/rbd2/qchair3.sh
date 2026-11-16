@@ -1,5 +1,4 @@
 #!/bin/bash
-# Qwen3-VL-8B CHAIR: pick the best setting on test rows 0-60 (chair_test500[:60]), then run pick and Base on all 500 test images.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/qchair3.log; TD=$O/runs/qchair_test500; T60=$O/runs/qchair_t60
@@ -21,7 +20,6 @@ ALL_CAND="s20a2bl1p05 s16a2bl1p05 s24a2bl1p05 bl1p05 s20a1bl1p05 s20a3bl1p05 s20
 
 echo "=== $(date +%T) qchair3.sh start: test rows 0-60 (candidates + base)" >> $LOG
 
-# Queue test rows 0-60 in chunks of 30: 0-30, 30-60
 { echo "# test rows 0-60: base"
   echo "chair_test500 qchair_test500 base 0 30"
   echo "chair_test500 qchair_test500 base 30 60"
@@ -44,7 +42,6 @@ P=$(.venv/bin/python -m tether.experiments.gemma_chair_pick $T60/score.json)
 if [ -z "$P" ] || [ -z "${A[$P]+x}" ]; then echo "=== $(date +%T) PICK_FAILED ($P)" >> $LOG; echo "# pick failed" > $QO; exit 1; fi
 echo "=== $(date +%T) picked $P (${A[$P]}); running test rows 60-500 for Base and $P" >> $LOG
 
-# Queue Base on rows 60-500
 { echo "# base on test rows 60-500"
   for b in $(seq 60 50 450); do
     end=$((b+50)); [ $end -gt 500 ] && end=500
@@ -53,7 +50,6 @@ echo "=== $(date +%T) picked $P (${A[$P]}); running test rows 60-500 for Base an
 } > $QB.tmp
 mv $QB.tmp $QB
 
-# Queue Picked on rows 60-500
 { echo "# ours on test rows 60-500: $P"
   for b in $(seq 60 50 450); do
     end=$((b+50)); [ $end -gt 500 ] && end=500

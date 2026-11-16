@@ -1,4 +1,3 @@
-# baselines on the test 1000, method by method so judging can start early
 bench throne_full1000 gemma_throne1000_parts base 0 100
 bench throne_full1000 gemma_throne1000_parts base 100 200
 bench throne_full1000 gemma_throne1000_parts base 200 300

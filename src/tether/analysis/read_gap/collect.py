@@ -1,15 +1,3 @@
-"""Read-gap E0 collector: one prefill forward per item, no intervention.
-
-pope mode  : POPE adversarial 3000 questions -> Yes/No logits at the answer
-             position, last-position hidden state of every layer (answer-side
-             read), and mean/max pooled image-token states per layer for each
-             image (vision-side read). Image tokens precede the question, so
-             their states do not depend on the question.
-images mode: an image list (probe training) -> pooled image-token states only.
-
-Model, dtype, image size and prompt template are those of the verified Base runs.
-Writes only under --output.
-"""
 import argparse,json,os,time,traceback
 from pathlib import Path
 
@@ -70,7 +58,6 @@ def main(a):
             for n,r in enumerate(data):
                 logits,last,v,ntok=run(adapter,r['image'],r['prompt'],img_id)
                 if variants:
-                    # case/space variants of the answer word (Gemma answers mostly "no"/"yes")
                     ly=float(torch.logsumexp(logits[variants['yes']],0));ln=float(torch.logsumexp(logits[variants['no']],0))
                 else:ly,ln=float(logits[adapter.yes_token_id]),float(logits[adapter.no_token_id])
                 top=int(logits.argmax())

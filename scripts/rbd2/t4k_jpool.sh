@@ -1,10 +1,4 @@
 #!/bin/bash
-# THRONE rows 1000-4999 (t4k_chain.sh): judge worker. Queue lines "MODEL TAG BLOCK JUDGE S-E,S-E,..." (the decode units of that block); a unit is
-# ready when those part files are complete, done when runs/t4k_MODEL/eval/TAG/bBLOCK-JUDGE/combined holds the judge's file. Claimed with mkdir in
-# claims_t4kj only when the GPU has the judge's MiB free twice, 10-30 s apart (t4k/jgate: lines "JUDGE MIB"). MODE light = only the judges listed
-# in t4k/light (default "base large"; small enough to share a GPU with two decoders), all = every judge. Both files are re-read every pass.
-# OOM not counted (back off 1-3 min); other failures twice -> skipped. Leaves when no unit is left that it may claim (done, failed twice, or held by
-# another worker); waits while such units are not ready yet. t4k/STOP: leave after the current unit.   usage: t4k_jpool.sh GPU_INDEX WORKER MODE
 G=$1; W=$2; MODE=$3
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; LG=$O/logs; C=$O/claims_t4kj; Q=$O/queues/t4k_judge.txt; mkdir -p $LG $C $O/t4k
 export BENCH=$L/bench RBD2_SETS=$O/sets HF_HOME=$L/.cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \

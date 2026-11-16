@@ -1,8 +1,4 @@
 #!/bin/bash
-# Worker for pb_amber_bl.sh: pb_bl_pool.sh plus VTI units through baselines/vti_ws.py (tag vtiws_v{av}_t{at}), its own claims
-# dir, and a free-memory check before each unit (other users share these GPUs; one Qwen needs ~18 GB).
-# Queue lines "METHOD ATTN SET OUTDIR START END" -> runs/OUTDIR/METHOD-START-END.jsonl (resumable).
-# usage: pb_amber_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_amber; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

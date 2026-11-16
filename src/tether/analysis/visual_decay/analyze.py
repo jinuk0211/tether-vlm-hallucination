@@ -1,25 +1,3 @@
-"""Summarize analysis/visual_decay/collect.py outputs (CPU only).
-
-E1 attention   by caption-position bin and layer band: mass on pre-image tokens (template and
-               system tokens before the image, where sinks sit) / image / prompt after the
-               image / caption so far / last 16 caption tokens; shares among content tokens
-               (pre-image removed): image vs text, the "text takes over 90%" claim; share of
-               image keys the mask still lets the step see (Gemma sliding window); rollout with
-               absorbing image tokens (share of attention paths that end on the image); the
-               prompt positions that receive the most attention, with their hidden-state norm.
-E2 lens/repr   by bin, for every layer: logit-lens image contribution log p(real)-log p(gray),
-               ||h_real-h_gray||/||h_real||, cos(h_real,h_gray), cos to the mean image state.
-               Linear probes for COCO object presence from the step-t hidden state, real vs gray
-               image (the gray run keeps the caption, so it measures what the text alone gives
-               away), 5-fold CV over captions, macro AUROC; also scored only on objects the
-               caption has not mentioned before t. Fixed cohort (captions long enough for every
-               step) so a falling curve cannot come from short captions dropping out.
-E3 causal      by bin: mean dlog p and KL to the unmodified run and greedy agreement, per
-               condition. Direct vs total effect on tokens after k: image keys blocked from k
-               (direct reading only) vs gray image (everything).
-Means are over captions (each caption's bin mean counts once); 95% CIs are cluster bootstraps
-over captions.
-"""
 import argparse,glob,json,re,warnings
 from pathlib import Path
 import numpy as np
@@ -39,7 +17,6 @@ def ci(x,n=1000,seed=0):
     m=np.random.default_rng(seed).choice(x,(n,len(x))).mean(1);return [float(np.quantile(m,.025)),float(np.quantile(m,.975))]
 
 def table(M):
-    """M [captions, bins] -> per-bin mean, CI, number of captions"""
     M=np.asarray(M,float);out=[]
     for j,l in enumerate(LAB):
         c=M[:,j];k=int((~np.isnan(c)).sum())
@@ -47,7 +24,6 @@ def table(M):
     return out
 
 def matrix(per_rec):
-    """per_rec: list of [rows, T] arrays -> [rows, bins] mean over captions of bin means"""
     return np.nanmean(np.stack([np.stack([bin_means(x) for x in a]) for a in per_rec]),0)
 
 def late_minus_early(vals,T,early=32,late=128,min_T=160):
@@ -58,7 +34,6 @@ def ratio_ci(num,den,n=1000,seed=0):
     num=np.asarray(num);den=np.asarray(den);rng=np.random.default_rng(seed);i=rng.integers(0,len(num),(n,len(num)))
     r=num[i].mean(1)/den[i].mean(1);return float(num.mean()/den.mean()),[float(np.quantile(r,.025)),float(np.quantile(r,.975))]
 
-# ---------------------------------------------------------------- E1
 def e1(recs):
     NL=recs[0]['attn'].shape[0];T=[r['T'] for r in recs]
     full=[l for l in range(NL) if all(float(r['visible'][l].float().min())>0.999 for r in recs)]
@@ -82,7 +57,6 @@ def e1(recs):
     ro=[r['rollout'].float().numpy() for r in recs]
     out['rollout_absorbing_image']={'image':table([bin_means(x[1]) for x in ro]),'pre_image':table([bin_means(x[0]) for x in ro]),
                                     'image_late_minus_early':late_minus_early([x[1] for x in ro],T)}
-    # where do the sinks sit? prompt positions are aligned across captions when the prompt and image size are fixed
     if len({r['capstart'] for r in recs})==1:
         recv=np.mean([r['key_recv'].float().mean(0).numpy() for r in recs],0)
         nrm=np.mean([r['prompt_norm'][NL//2].float().numpy() for r in recs],0);med=float(np.median(nrm))
@@ -90,7 +64,6 @@ def e1(recs):
         grp=lambda p:'pre_image' if p<i0 else 'image' if p<=i1 else 'prompt'
         out['most_attended_prompt_positions']=[{'position':int(p),'group':grp(p),'attention_received':float(recv[p]),
                                                 'hidden_norm_over_median_at_mid_layer':float(nrm[p]/med)} for p in np.argsort(-recv)[:10]]
-    # how concentrated is the attention that does reach the image (visual sink tokens)?
     conc=[]
     for r in recs:
         i0,i1=r['image_span'];v=r['key_recv'][:,i0:i1+1].float();v=v/v.sum(-1,keepdim=True).clamp_min(1e-12);k=max(1,int(0.01*v.shape[1]))
@@ -98,7 +71,6 @@ def e1(recs):
     out['image_attention_on_top1pct_image_tokens']={'mean':float(np.mean(conc)),'ci95':ci(conc)}
     return out
 
-# ---------------------------------------------------------------- E2
 def e2(recs):
     T=[r['T'] for r in recs];depth=recs[0]['probe_layers']
     vcd=[(r['lens_real'].float()-r['lens_gray'].float()).numpy() for r in recs]
@@ -110,7 +82,6 @@ def e2(recs):
         out['per_layer'][k]={'bins':LAB,'matrix':matrix(v).tolist()}
         out['at_probe_layers'][k]={str(l):table([bin_means(x[l]) for x in v]) for l in depth}
         out['at_probe_layers'][k+'_late_minus_early']={str(l):late_minus_early([x[l] for x in v],T) for l in depth}
-    # object-mention tokens: logit-lens image contribution at the mention's first token
     obj={}
     for r,x in zip(recs,vcd):
         for nd,w,t,kind in r['mentions']:
@@ -140,7 +111,7 @@ def fit_predict(Xtr,Ytr,Xte,dim=128,l2=1e-2):
     opt.step(closure)
     with torch.no_grad():return (Zte@W+b).cpu().numpy()
 
-DEV='cuda' if torch.cuda.is_available() else 'cpu'  # probes are the slow part; a GPU makes them minutes faster
+DEV='cuda' if torch.cuda.is_available() else 'cpu'
 
 def cv_scores(X,Y,folds=5,seed=0):
     N=len(X);fold=np.random.default_rng(seed).permutation(N)%folds;S=np.zeros(Y.shape);X=X.to(DEV);Y=Y.to(DEV)
@@ -150,9 +121,6 @@ def cv_scores(X,Y,folds=5,seed=0):
     return S,fold
 
 def macro_auroc(S,Y,valid,fold,min_each=10):
-    """AUROC inside each test fold, averaged over folds, then over classes. Pooling the folds'
-    scores is biased below 0.5 for rare classes: a fold with more positives trains on fewer, so
-    its intercept is lower exactly where the positives are (constant inputs scored ~0.38)."""
     a=[]
     for c in range(Y.shape[1]):
         v=valid[:,c];y=Y[v,c]
@@ -162,12 +130,11 @@ def macro_auroc(S,Y,valid,fold,min_each=10):
         if per:a.append(float(np.mean(per)))
     return (float(np.mean(a)) if a else None),len(a)
 
-ONLY_LAYER=None  # set by --probe-layer: probe a single depth (index into probe_layers), so depths can run as parallel processes
+ONLY_LAYER=None
 
 def probes(recs,min_cohort=200):
     steps=sorted({t for r in recs for t in r['probe_steps']});layers=recs[0]['probe_layers']
     classes=sorted({o for r in recs for o in r['gt_objects']})
-    # cohort: captions that reach the largest step that still keeps >= min_cohort captions
     reach=[s for s in steps if sum(r['T']>s for r in recs)>=min_cohort];s_c=max(reach) if reach else steps[0]
     cohort=[r for r in recs if r['T']>s_c]
     out={'classes_seen':len(classes),'cohort':{'max_step':s_c,'n':len(cohort)},'cohort_results':{},'all_captions_results':{}}
@@ -201,7 +168,6 @@ def probes(recs,min_cohort=200):
                 out['image_tokens_ceiling'][str(l)]=macro_auroc(S,Y,np.ones_like(Y,bool),fold)[0]
     return out
 
-# ---------------------------------------------------------------- E3
 def e3(recs):
     conds=list(recs[0]['causal']);T=[r['T'] for r in recs];out={'conditions':conds,'by_bin':{}}
     out['teacher_forced_greedy_reproduction']={'raw_argmax':float(np.mean([r['base_greedy'].float().mean() for r in recs])),
@@ -210,7 +176,6 @@ def e3(recs):
         d=[(r['causal'][c]['logp'].float()-r['base_logp'].float()).numpy() for r in recs]
         kl=[r['causal'][c]['kl'].float().clamp_min(0).numpy() for r in recs];ag=[r['causal'][c]['agree'].float().numpy() for r in recs]
         out['by_bin'][c]={'dlogp':table([bin_means(x) for x in d]),'kl':table([bin_means(x) for x in kl]),'greedy_agreement':table([bin_means(x) for x in ag])}
-    # direct (image keys blocked from k on) vs total (gray image) effect on tokens t >= k
     dt={}
     for k in (32,64,128):
         name=f'ko{k}';rs=[r for r in recs if r['T']>=k+16]
@@ -220,7 +185,6 @@ def e3(recs):
         for c in (name,'ko0'):
             r_,ci_=ratio_ci(kl[c],kl['gray']);dt[f'tokens_t>={k}'][f'{c}_over_gray']={'ratio':r_,'ci95':ci_}
     out['direct_vs_total']=dt
-    # object mentions
     om={}
     for r in recs:
         for nd,w,t,kind in r['mentions']:
@@ -250,7 +214,6 @@ def headline(s):
     return h
 
 def main(a):
-    # tag = qwen / gemma (stored captions) or qwen-regen / gemma-regen (--regenerate); never mix the two
     files=sorted(f for f in glob.glob(str(a.input/'*.pt')) if re.fullmatch(rf'{re.escape(a.model)}-\d+-\d+\.pt',Path(f).name))
     recs=[r for f in files for r in torch.load(f,weights_only=False)]
     assert recs,'no records';assert len({r['id'] for r in recs})==len(recs),'duplicate captions across shards'

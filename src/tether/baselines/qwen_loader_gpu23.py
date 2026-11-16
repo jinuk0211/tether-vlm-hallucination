@@ -1,4 +1,3 @@
-"""Qwen loader restricted to physical GPU2/GPU3; nothing is loaded on import."""
 import hashlib
 import json
 import os
@@ -27,7 +26,6 @@ def require_gemma_complete():
 
 
 def verify_run_protocol(output):
-    """Check the recorded inputs before spending GPU time on the Qwen run."""
     assert output.resolve().parent == ROOT / 'outputs'
     protocol = json.loads((output / 'protocol.json').read_text())
     body = {k: v for k, v in protocol.items() if k != 'sha256'}

@@ -1,7 +1,3 @@
-"""Does the vision-side probe add information beyond the model's own Yes/No margin?
-Refits the probe config chosen in analysis-<model>.json (train images only), then on POPE:
-2-fold-by-image logistic on [margin, logit(probe)] vs margin alone (AUROC, accuracy),
-and how many FN items the probe sees as strongly as a typical TP."""
 import json,math,random,sys
 from pathlib import Path
 import torch
@@ -11,7 +7,6 @@ out={}
 for model in sys.argv[1:]:
     an=json.loads((E0/f'analysis-{model}.json').read_text())[model];tag=an['pope_tag'];ch=an['vision_probe']['chosen']
     rows=A.read(E0/f'{tag}-rows.jsonl');names=json.loads((PS/'categories.json').read_text())
-    # force the chosen config: restrict selection to it by monkeypatching feats loop is unnecessary; refit directly
     tr_states=torch.load(E0/f'{model}-train-vision-states.pt');items={r['id']:r for r in A.read(PS/'list.jsonl')}
     Y=torch.zeros(len(tr_states['ids']),80)
     for i,k in enumerate(tr_states['ids']):
@@ -33,7 +28,6 @@ for model in sys.argv[1:]:
                 F=torch.tensor([[c[i] for c in cols] for i in range(len(rows))],dtype=torch.float32)
                 Ft,fm,fs=A.standardize(F[tr]);w,bb=A.fit_logreg(Ft,torch.tensor([[float(gold[i])] for i in tr]),wd=0,steps=500)
                 z=(((F-fm)/fs)@w+bb)[:,0]
-                # threshold tuned on the training fold for accuracy
                 ztr=[float(z[i]) for i in tr];t=A.best_threshold(ztr,[gold[i] for i in tr])
                 for i in te:sc[name][i]=float(z[i]);pred[name][i]=float(z[i])>t
         for name in sc:aucs[name].append(A.auroc(sc[name],gold));accs[name].append(A.metrics(pred[name],gold)['acc'])

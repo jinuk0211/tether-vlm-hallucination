@@ -1,8 +1,4 @@
 #!/bin/bash
-# App. A.8 "Caption positions" support: hidden-layer band (Qwen L22-27, Gemma L30-41) top-1 object words by position
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_hidden_band_top1.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
 HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import glob,torch,numpy as np
@@ -20,12 +16,12 @@ for m,ck,rev,band in (('qwen','Qwen/Qwen2.5-VL-7B-Instruct','cc594898137f460bfe9
     for r in T:
         c=caps[r['id']];assert len(c)==r['T'];L=lab[r['image_id']];GT=set(L['gt']);H=set(L['hallucinated']);t1=r['top1'][list(band)].numpy()
         first={x['node']:x['t'] for x in reversed(r['mentions']) if x['first']}
-        v=np.zeros((r['T'],5))  # any band layer at this position: nonGT, hall, hallBefore, GT, position counted
+        v=np.zeros((r['T'],5))
         for t in range(r['T']):
             prev=c[t-1] if t>0 else -1;seen=set()
             for w in t1[:,t].tolist():
                 n=own.get(w)
-                if n is None or w==prev or w==c[t]:continue  # echo of the input token / the token actually written
+                if n is None or w==prev or w==c[t]:continue
                 seen.add((n,w))
             for n,w in seen:
                 if n in GT:v[t,3]=1
@@ -44,11 +40,9 @@ for m,ck,rev,band in (('qwen','Qwen/Qwen2.5-VL-7B-Instruct','cc594898137f460bfe9
         n=[r for r in per if r[1]>a]
         if len(n)<5:continue
         M=[100*np.mean(rate(n,a,b,k)) for k in (0,1,2,3)];print(f' {lab_b[i]:9s} {len(n):4d}     | {M[0]:6.2f} | {M[1]:6.2f} | {M[2]:6.2f} | {M[3]:6.2f} | {100*M[0]/max(M[0]+M[3],1e-9):5.1f}%')
-    # within-caption paired: same captions, early vs late
     cut_e,cut_l=64,128;rows=[r for r in per if r[1]>=192]
     for k,nm in ((0,'non-GT word'),(1,'hallucinated object'),(3,'GT word')):
         d=np.array([100*(v[cut_l:,k].mean()-v[:cut_e,k].mean()) for _,_T,v in rows]);bs=d[rng.integers(0,len(d),(2000,len(d)))].mean(1);print(f'  same captions (T>=192, n={len(d)}), token 128+ minus token 0-63, {nm}: {d.mean():+.2f} [{np.quantile(bs,.025):+.2f},{np.quantile(bs,.975):+.2f}]')
-    # by caption fraction, to remove length effects
     fr=[[],[],[],[]]
     for _,_T,v in per:
         for q in range(4):

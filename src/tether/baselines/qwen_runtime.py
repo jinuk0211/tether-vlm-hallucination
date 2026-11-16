@@ -1,4 +1,3 @@
-"""Move the five-profile run to GPU0 without changing its protocol."""
 import hashlib
 import json
 import os

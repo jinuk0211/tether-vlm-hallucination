@@ -1,18 +1,3 @@
-"""Qwen2.5-VL CHAIR ablation of the paper's RBD row.
-Full RBD = s16a2bl1p05: steering alpha 2 at layer 16 + belief lam 1 + penalty 0.5, decay schedules, measured r(t), raw
-evidence, sdpa, old V_obj (runs/chair_test500_all; CHAIR_s 25.6 / CHAIR_i 6.86 / recall 68.9 / 178 tok).
-Variants (one change each, everything else as the full row):
-  abl_nosteer   alpha 0              (belief + penalty)
-  abl_nobelief  lam 0                (steering + penalty)
-  abl_nopen     pen 0                (steering + belief)        rows 0-59 reused from runs/chair_test60_sweep/s16a2bl1
-  abl_steer     steering only        (alpha 2)
-  abl_belief    belief only          (lam 1)                    rows 0-149 reused from runs/chair_test150_all/bl1
-  abl_pen       penalty only         (pen 0.5)
-  abl_const     schedules constant   (--bsched const --ssched const: w(t) = s(t) = 1 instead of 1 - r(t))
-Rows are reused only where the stored setting is identical. vdd Base and the full row come from runs/chair_test500_all.
-  queue      queues/abl_chair.txt (units of 50; reused prefixes skipped)
-  join       runs/chair_abl500_all/<tag>-0-500.jsonl (base = vdd Base, rbd_full, variants) and
-             runs/chair_abl500_vsfull/ (base = the full RBD row, so the bootstrap gives each variant's change vs full)"""
 import json,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102')

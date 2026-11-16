@@ -1,6 +1,3 @@
-"""CHAIR scorer from the cached state of the unmodified CHAIR constructor (chair_scorer), and scoring of
-a VTI alpha-sweep slice against the five-method rows on the same items (POPE through eval/official.py). CPU only.
-"""
 import argparse,json,os,re
 from pathlib import Path
 

@@ -1,10 +1,4 @@
 #!/bin/bash
-# Gemma CHAIR: pick the setting on the first 60 test images (chair_test500[:60] = chair_test60), not
-# on dev, then run the pick on all 500 test images. Replaces gchair2.sh (dev sweep, stopped).
-# Candidates on test rows 0-60: the 8 settings of gchair2.sh besides s24a2bl1p05, whose 500 test rows (and the vdd Base's)
-# already exist. Rule as experiments/gemma_chair_pick.py: among candidates with recall >= vdd Base recall - 2 on these 60, lowest CHAIR_s,
-# ties by CHAIR_i; if none qualifies, highest F1. The pick then runs on test rows 60-500.
-# Workers: gchair_pool.sh c2, c3, c4a, c4b (GPUs 2, 3, 4, 4), already running. Log: logs/gchair3.log, GCHAIR3_DONE.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gchair3.log; TD=$O/runs/gchair_test500; T60=$O/runs/gchair_t60

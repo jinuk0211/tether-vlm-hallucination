@@ -1,9 +1,4 @@
 #!/bin/bash
-# Qwen2.5-VL CHAIR ablation of the paper's RBD row (design in experiments/chair_ablation.py).
-# Starts when every queued job has ended: logit lens (ALL_DONE), AMBER vdd3 (VDD3_DONE/STOPPED), THRONE colour fix
-# (VDD4_DONE/STOPPED). Workers on GPUs 2, 3, 4 (x2), 5, memory-gated (vdd4_pool.sh, Qwen; decoding/vdd_vobj.py without --vobj
-# = decoding/vdd.py with the old V_obj). Scored with the CHAIR scorer of the paper table: vs vdd Base and vs the full RBD row.
-# Log: logs/abl_chair.log, ABL_DONE / ABL_STOPPED.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/abl_chair.log

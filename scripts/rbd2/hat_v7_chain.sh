@@ -1,9 +1,4 @@
 #!/bin/bash
-# Second RBD selection on HAT for ALOHa (GPUs 0 and 1). Design and pick rule in experiments/hat_reselect.py.
-#  1 the 9 candidates on HAT rows 0-99: hat_pool.sh workers on GPU 0 x2 and GPU 1 (memory-gated, all owned by this chain)
-#  2 parse (Qwen3-VL-8B, official prompts), ALOHa table on rows 0-99, pick
-#  3 the pick on rows 100-384, parse, tables on all 385 rows and on rows 100-384 (not used for this selection), next to the existing rows
-# Log: logs/hat_v7.log, V7_DONE / V7_STOPPED. Restart after a kill: rm -r claims_hat385/qwen-v7_* (finished units are kept).
 L=${HAT_L:-/home/project-b/LJW}; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 PARSER=hf:Qwen/Qwen3-VL-8B-Instruct; GPUS=${GPUS:-0 0 1}; PARSE_GPUS=${PARSE_GPUS:-1 0}
@@ -21,9 +16,7 @@ parse(){ for try in 1 2 3 4 5; do
     grep -q OutOfMemoryError $PL || break; log "parser out of memory, try $try"; sleep 120
   done; stop "parse failed ($PL)"; }
 score(){ $CPU $AP -m tether.eval.hat_aloha score $PARSER $O/runs/hat385_qwen $1 $2 $O/hat385/score-qwen-v7-$1-$2 2>> $SE | tee -a $LOG; [ ${PIPESTATUS[0]} -eq 0 ]; }
-# 11-06 Gemma selection: the scorer met a caption missing from the parse cache (KeyError); parse once more and retry before giving up
 pscore(){ parse; score $1 $2 > /dev/null || { log "scoring rows $1-$2 failed, parse again"; parse; score $1 $2 > /dev/null; }; }
-# every worker is this chain's own; a worker leaves only when no unit is open, so the wait covers every unit (hat_pool.sh)
 pool(){ PIDS=(); i=0; for G in $GPUS; do i=$((i+1)); bash scripts/rbd2/hat_pool.sh $G v7$1$i $2 & PIDS+=($!); sleep 60; done; wait "${PIDS[@]}"; }
 log "hat_v7_chain.sh start: parser $PARSER, workers on GPUs $GPUS"
 $CPU $PY -m tether.experiments.hat_reselect queue_sel >> $LOG 2>&1 || stop "queue failed"

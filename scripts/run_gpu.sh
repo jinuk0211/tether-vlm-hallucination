@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Linux GPU server helper. Existing outputs are never overwritten.
 set -euo pipefail
 
 config="${1:?Usage: bash scripts/run_gpu.sh CONFIG DEVELOPMENT_JSONL EVALUATION_JSONL OUTPUT_DIR [tune|test]}"

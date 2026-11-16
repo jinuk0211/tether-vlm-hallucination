@@ -1,5 +1,3 @@
-"""Qwen3-VL baselines vs vdd Base and RBD on the same images, with and without class orange. CPU only; runs/qchair_test500_tbl is only read; complete
-lines are copied to SNAP. Same scorer and paired bootstrap (2000, seed 0) as eval/sets.py.   usage: python -m tether.experiments.reports.qwen3_chair SNAP"""
 import hashlib,json,re,sys,time
 from pathlib import Path
 import numpy as np

@@ -1,12 +1,3 @@
-"""Open-vocabulary object-noun detector for self-verified decoding (WordNet only, no COCO list).
-
-A token span counts as an object mention if its most frequent WordNet noun sense
-descends from physical object (object.n.01) or matter (matter.n.03; food,
-substances). Two-word compounds known to WordNet ("fire hydrant") are matched
-first. Words that describe the picture itself or a region of it are excluded.
-Same interface as CHAIR.caption_to_words: (words, nodes, idxs, tokens), with the
-node equal to the lemma, so verification asks about the word actually written.
-"""
 from functools import lru_cache
 import nltk
 from nltk.corpus import wordnet as wn
@@ -31,7 +22,6 @@ must do does did done doing be is am are was were been being have has had having
 looks one ones another while if because although though whether either neither like unlike per via etc overall perhaps possibly likely""".split())
 
 def noun_dominant(w):
-    """Noun usage (WordNet/SemCor lemma counts) at least as frequent as other parts of speech."""
     key=w.replace(' ','_');n=o=0
     for s in wn.synsets(key):
         c=sum(l.count() for l in s.lemmas() if l.name().lower()==key)
@@ -53,7 +43,6 @@ def physical(w):
     return any(r in path for s in ss for path in s.hypernym_paths() for r in ROOTS)
 
 def concrete(w,ctx=()):
-    """Physical noun; POS-ambiguous words count only after a determiner/number (within 2 words)."""
     return physical(w) and (noun_dominant(w) or any(c in DET for c in ctx))
 
 class WordNetNouns:

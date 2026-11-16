@@ -1,8 +1,3 @@
-"""Pinned VTI author implementation with Qwen2.5 input/shape adapters only.
-
-Author PCA, patch masks, directions, MLP placement and VTILayer are invoked
-from the unmodified checkout. No tether.baselines.local VTI is imported.
-"""
 import argparse,collections,contextlib,hashlib,importlib,json,os,random,sys,time,traceback,types
 from pathlib import Path
 import numpy as np
@@ -32,7 +27,6 @@ class LayerView(torch.nn.Module):
     def __init__(self,layers):super().__init__();self.layers=layers
 
 class VisionShape(torch.nn.Module):
-    """Qwen ViT uses [tokens,hidden]; original VTI expects a batch axis."""
     def __init__(self,author_layer):super().__init__();self.author_layer=author_layer
     def forward(self,x):
         assert x.ndim==2
@@ -49,7 +43,6 @@ def install(layers,direction,alpha,author_layers,vision=False):
     return originals
 
 class ImageProcessor:
-    """Expose fixed-size normalized CHW pixels to original get_demos/masks."""
     def __init__(self,processor):
         self.mean=torch.tensor(processor.image_mean)[:,None,None]
         self.std=torch.tensor(processor.image_std)[:,None,None]
@@ -67,8 +60,6 @@ class VisionCapture:
         handles.append(a.vision_layers[0].register_forward_pre_hook(first,with_kwargs=True))
         handles.extend(layer.register_forward_hook(capture) for layer in a.vision_layers)
         try:
-            # Pixels already have Qwen normalization; its processor only packs
-            # spatial/temporal patches. This avoids PIL quantization round trips.
             batch=a.processor.image_processor(images=[pixels[0].float().cpu()],do_rescale=False,do_normalize=False,return_tensors='pt')
             visual=a.model.model.visual
             visual(batch['pixel_values'].to('cuda',dtype=torch.float16),grid_thw=batch['image_grid_thw'].to('cuda'))
@@ -94,8 +85,6 @@ def prompt_pairs(adapter,args,model,tokenizer,demos,question,model_is_llaval=Tru
         path=Path(args.data_file)/'train2014'/d['image']
         with Image.open(path) as source:image=ImageOps.exif_transpose(source).convert('RGB').resize((448,448),Image.Resampling.BICUBIC)
         prompt=adapter.processor.apply_chat_template([{'role':'user','content':[{'type':'image'},{'type':'text','text':question}]}],tokenize=False,add_generation_prompt=True)
-        # Original author captions terminate at their final token, without an
-        # added assistant EOS. Only multimodal input preparation is adapted.
         styles=[]
         for key in ['h_value','value']:
             b=adapter.processor(text=[prompt+d[key]],images=[image],return_tensors='pt')
@@ -144,7 +133,6 @@ def main(out):
             config=json.loads((PARENT/'config.json').read_text())['model'];config['dtype']='float16'
             update(stage='loading_original_vti_model')
             adapter=load_gpu0(config,PARENT,'vti-author-'+out.name.rsplit('-',1)[-1])
-            # Keep the immutable parent device proof as well as a subrun copy.
             proof=PARENT/('vti-author-'+out.name.rsplit('-',1)[-1]+'-device-map.json')
             (out/'device-map.json').write_bytes(proof.read_bytes())
             artifact_path=out/'vti-author.pt'

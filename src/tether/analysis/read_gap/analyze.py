@@ -1,14 +1,3 @@
-"""Read-gap E0 analysis (CPU). Inputs come from analysis/read_gap/collect.py.
-
-A. Yes-logit offset baseline: threshold on margin = logit(Yes)-logit(No),
-   tuned on half of the POPE images and tested on the other half (2-fold by
-   image, 50 random splits). Oracle threshold reported as an upper bound only.
-B. Vision-side probe: 80-class logistic probe on pooled image-token states of
-   COCO train2014 (layer/pool chosen on a train-only validation split). Applied
-   to POPE: probe-as-answer accuracy and the FN-vs-TP score comparison.
-C. Answer-side read: per-layer linear probe on the answer-position state,
-   2-fold by POPE image (analysis only), compared with the model's own margin.
-"""
 import argparse,json,math,random,re
 from pathlib import Path
 import torch
@@ -34,7 +23,6 @@ def auroc(score,gold):
 def best_threshold(margin,gold,objective='acc'):
     cands=sorted(set(margin));cands=[cands[0]-1]+[(a+b)/2 for a,b in zip(cands,cands[1:])]+[cands[-1]+1]
     best=None
-    # coarse grid keeps this fast on 1,500 items
     step=max(1,len(cands)//400)
     for t in cands[::step]:
         m=metrics([x>t for x in margin],gold)[objective]
@@ -106,12 +94,11 @@ def vision_probe(train_states,train_list,names,pope_states,rows,base_margin_gold
     best=max(sel,key=lambda s:s['val_mean_auroc'])
     X=feats(P,best['layer'],best['pool']);Xt,mu,sd=standardize(X[tr]);W,b=fit_logreg(Xt,Y[tr])
     Sva=torch.sigmoid(((X[va]-mu)/sd)@W+b)
-    # one global probability threshold chosen on the train-side validation split (balanced accuracy)
     fs=Sva.flatten();fy=Y[va].flatten().bool()
     def bacc(t):
         return float(.5*((fs>t)&fy).sum()/fy.sum()+.5*((fs<=t)&~fy).sum()/(~fy).sum())
     tau=max([i/100 for i in range(1,100)],key=bacc)
-    Xall,mu,sd=standardize(X);W,b=fit_logreg(Xall,Y)  # final probe on all 5000 train images
+    Xall,mu,sd=standardize(X);W,b=fit_logreg(Xall,Y)
     gi={g:i for i,g in enumerate(pope_states['groups'])};Xp=(feats(pope_states['pooled'],best['layer'],best['pool'])-mu)/sd
     S=torch.sigmoid(Xp@W+b);idx={nm:i for i,nm in enumerate(names)}
     score=[]

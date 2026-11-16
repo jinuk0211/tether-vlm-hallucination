@@ -1,14 +1,8 @@
-"""AMBER generative metrics (CHAIR, Cover, Hal, Cog) on the first 100 AMBER images.
-
-Per-image counts reuse the official inference.py (extract_nouns, check_synonyms_word, data files); the loop body
-below is its generative branch unchanged, only accumulated per image so a paired bootstrap over images is possible.
-Aggregates are checked against the official script run on the same responses.
-usage: python -m tether.eval.amber OUT_JSON name=rows.jsonl [...]   (first name = Base)"""
 import importlib.util,json,os,re,subprocess,sys,tempfile
 from pathlib import Path
 import numpy as np
 
-A=Path(os.environ.get('AMBER_REPO','/tmp/AMBER'))  # project-b: data/amber/repo
+A=Path(os.environ.get('AMBER_REPO','/tmp/AMBER'))
 spec=importlib.util.spec_from_file_location('amber_official',A/'inference.py');O=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(O)
 def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s.strip()]

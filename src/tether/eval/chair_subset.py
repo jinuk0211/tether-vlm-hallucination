@@ -1,7 +1,3 @@
-"""CHAIR on the first 100 CHAIR test images: unmodified CHAIR constructor (Maxlinn port, sha256 98728cd2...) on the
-COCO 2014 annotations, cached by eval/chair_cache.py; same per-image arrays and paired bootstrap (2000, seed 0) as
-the round-1 scorer.
-usage: python -m tether.eval.chair_subset OUT_JSON name=rows.jsonl [name=rows.jsonl ...]   (first name = Base)"""
 import hashlib,json,sys,tempfile
 from pathlib import Path
 import numpy as np
@@ -12,7 +8,7 @@ def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s
 
 def main(out,specs):
     ids=[r['metadata']['image_id'] for r in read('/workspace/chair_test100.jsonl')]
-    cache=json.loads(Path('/workspace/rbd_pilot/chair-test100-scorer-state.json').read_text())   # eval/chair_cache.py
+    cache=json.loads(Path('/workspace/rbd_pilot/chair-test100-scorer-state.json').read_text())
     assert cache['built_with_unmodified_constructor'] and cache['scorer_sha256']==hashlib.sha256(SRC.read_bytes()).hexdigest()
     mod=_load_external_module(SRC,'original_chair_test100');sc=mod.CHAIR.__new__(mod.CHAIR);sc.__dict__.update(cache['state'])
     sc.imid_to_objects={int(k):set(v) for k,v in cache['state']['imid_to_objects'].items()}

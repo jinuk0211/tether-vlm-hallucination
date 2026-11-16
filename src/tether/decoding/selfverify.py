@@ -1,13 +1,3 @@
-"""Self-verified decoding for captions (CHAIR protocol: 500 images, greedy, 512 tokens).
-
-Greedy decoding as in Base. When a word boundary completes a COCO object
-mention (detected with the unmodified CHAIR scorer's caption_to_words) whose
-object node has not been verified yet, the same model is asked the POPE-style
-question "Is there a {node} in the image?\nPlease answer yes or no." If the
-Yes-No margin is below tau, decoding rolls back to the first token of that
-mention, bans that token at that position, and continues greedily. Verdicts are
-cached per (image, node). tau=-inf is the restart-only control (never rejects).
-"""
 import argparse,json,math,os,time,traceback
 from pathlib import Path
 import torch
@@ -25,7 +15,6 @@ class Ban(LogitsProcessor):
         return scores
 
 class StopAtPending(StoppingCriteria):
-    """Stop right after a word boundary if the text so far mentions an unaccepted node."""
     def __init__(self,base_len,tok,scorer,accepted,key):self.base_len=base_len;self.tok=tok;self.scorer=scorer;self.accepted=accepted;self.key=key
     def __call__(self,input_ids,scores,**kw):
         ids=input_ids[0,self.base_len:].tolist();flag=False
@@ -37,18 +26,15 @@ class StopAtPending(StoppingCriteria):
         return torch.tensor([flag],device=input_ids.device)
 
 def mention_token_positions(tok,ids,scorer):
-    """(node, token index where the mention starts) for every mention, in order."""
     text=tok.decode(ids,skip_special_tokens=True);low=text.lower()
     import nltk
     words=nltk.word_tokenize(low)
-    # char offset of each nltk token by sequential search
     offs=[];p=0
     for w in words:
         q=low.find(w,p)
         if q<0:q=p
         offs.append(q);p=q+len(w)
     mwords,nodes,idxs,_=scorer.caption_to_words(text)
-    # cumulative decoded length per token
     cum=[0]
     for i in range(1,len(ids)+1):cum.append(len(tok.decode(ids[:i],skip_special_tokens=True)))
     out=[]

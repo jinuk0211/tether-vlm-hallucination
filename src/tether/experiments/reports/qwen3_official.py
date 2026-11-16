@@ -1,4 +1,3 @@
-"""Qwen3-VL CHAIR 500: official REVIS and GrAInS (runs/qchair_bl2) next to vdd Base, RBD and the earlier rows, with and without class orange. CPU only; same scorer and paired bootstrap as eval/sets.py."""
 import hashlib,json
 from pathlib import Path
 import numpy as np

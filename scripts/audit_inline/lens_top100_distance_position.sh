@@ -1,8 +1,4 @@
 #!/bin/bash
-# Table A.6: top-100 lens detection before the first mention, by tokens-until-written x caption position (raw / chance-removed)
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_top100_distance_position.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
 OMP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import torch,numpy as np

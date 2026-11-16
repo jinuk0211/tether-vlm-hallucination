@@ -1,6 +1,3 @@
-"""Extend the 60-image test sets to 120 in the same order: chair_test120 = first 120 of the CHAIR test order
-(chair_test60 + the next 60), throne_test120 = the 120 smallest COCO val2017 image ids (throne_test60 + the next 60;
-new images fetched from images.cocodataset.org, sha256 recorded). The first 60 rows are copied unchanged."""
 import hashlib,json,urllib.request
 from pathlib import Path
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'outputs/rbd2-20261102';S=O/'sets'

@@ -1,8 +1,3 @@
-"""RBD pilot step 1: log p over V_obj at every caption step (teacher forcing on the stored Base captions).
-
-Per caption: T x |V_obj| log-probabilities (full-vocabulary log-softmax, then restricted to V_obj), the id of the
-token actually written, and the object mentions with CHAIR's own hallucinated/correct label (first mention per node).
-"""
 import argparse,json,os,time,traceback
 from pathlib import Path
 import torch

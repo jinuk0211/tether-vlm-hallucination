@@ -1,9 +1,4 @@
 #!/bin/bash
-# 500-image check: Base + one setting per set, images 150-499 in 50-image chunks through pb_pool.sh.
-# GPU 5 (two workers) starts now; GPUs 3 and 4 (one and two workers) join when the full-THRONE baseline scoring
-# (pb_bl_chain.sh, pid $1) has finished with them. Then experiments/join_500.py, CHAIR and AMBER on the CPU, THRONE judges for the
-# two THRONE runs on GPU 5, THRONE scores. Everything goes to logs/score500.log.
-# usage: pb_run500.sh BL_CHAIN_PID
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 Q=$O/queues/pool500.txt; P=()

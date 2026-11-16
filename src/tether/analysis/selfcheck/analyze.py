@@ -1,6 +1,3 @@
-"""Analyze E0-caption rows: separation of hallucinated vs correct mentions by the
-model's own Yes/No margin, and the CHAIR effect of dropping mentions the model
-itself denies (offline simulation, not a generation result)."""
 import json,sys
 from pathlib import Path
 from tether.analysis.read_gap.analyze import auroc
@@ -25,7 +22,6 @@ def main(path):
          'auroc_correct_vs_hallucinated':auroc(c+h,[1]*len(c)+[0]*len(h)),
          'denied_at_0':{'hallucinated':sum(x<0 for x in h)/len(h),'correct':sum(x<0 for x in c)/len(c),'missed_affirmed':sum(x>0 for x in mi)/len(mi)},
          'simulated_drop_denied':{str(t):simulate(rows,t) for t in (float('-inf'),-2,-1,0,1,2)}}
-    # hallucination rate by order of first mention among object nodes in the caption
     by={}
     for r in rows:
         if r['kind']=='missed':continue

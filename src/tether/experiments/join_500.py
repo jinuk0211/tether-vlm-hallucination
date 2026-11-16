@@ -1,11 +1,6 @@
-"""Join the 500-image runs: rows 0-149 from runs/<set>_test150_all/<tag>-0-150.jsonl, rows 150-499 from the 50-image
-chunks in runs/<set>_test500, into runs/<set>_test500_all/<tag>-0-500.jsonl. Every piece must match
-sets/<set>_test500.jsonl id for id and carry the tag's setting (missing keys count as defaults, as in experiments/join_150.py).
-usage: python -m tether.experiments.join_500 [--check]"""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');N=150;M=500;CHECK='--check' in sys.argv
-# each set's Base plus its best 150-image setting
 RUNS={'chair':['base','s16a2bl1p05'],'throne':['base','s16a1bl2p1'],'amber':['base','mainMed']}
 def read(p):return [json.loads(l) for l in open(p) if l.strip()]
 def setting(r):s={'bpos':False,'norm':'raw',**(r.get('setting') or {})};return json.dumps(s,sort_keys=True)

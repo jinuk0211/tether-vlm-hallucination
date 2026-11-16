@@ -1,7 +1,3 @@
-"""Download the NLTK resources the unmodified CHAIR scorer needs."""
-
-from __future__ import annotations
-
 import argparse
 import shlex
 import stat
@@ -9,8 +5,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 
-def extract_wordnet(archive: Path, destination: Path) -> None:
-    """Extract only the WordNet tree after validating every archive member."""
+def extract_wordnet(archive, destination):
     destination = destination.resolve()
     with zipfile.ZipFile(archive) as source:
         for member in source.infolist():
@@ -28,8 +23,8 @@ def extract_wordnet(archive: Path, destination: Path) -> None:
         source.extractall(destination)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+def main():
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--download-dir", type=Path, default=Path(".cache/nltk_data"),
         help="Store official NLTK resources here (default: .cache/nltk_data)",
@@ -45,7 +40,6 @@ def main() -> None:
         nltk.download(resource, download_dir=str(directory), raise_on_error=True)
     if not (directory / "corpora" / "wordnet").is_dir():
         extract_wordnet(directory / "corpora" / "wordnet.zip", directory / "corpora")
-    # Exercise the same dependencies as CHAIR. Do not substitute a tokenizer.
     from pattern.en import singularize
 
     if singularize("birds") != "bird" or not nltk.word_tokenize("Two cats."):

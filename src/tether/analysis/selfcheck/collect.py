@@ -1,11 +1,3 @@
-"""E0-caption: does the model, when asked, deny objects it wrote in its own caption?
-
-For every Base CHAIR caption (500 images) and every COCO object node that is
-(a) mentioned and hallucinated, (b) mentioned and correct, or (c) in the
-ground truth but not mentioned, ask the same model the POPE-style question
-"Is there a {node} in the image?\nPlease answer yes or no." and record the
-Yes-No margin (case/space variants pooled). No intervention, Base config.
-"""
 import argparse,json,os,time,traceback
 from pathlib import Path
 import torch

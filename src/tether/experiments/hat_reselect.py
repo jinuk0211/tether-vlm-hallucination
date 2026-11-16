@@ -1,11 +1,3 @@
-"""Second RBD selection on HAT, for ALOHa (hat_v7_chain.sh), to raise HAT's ALOHa; selection on 100 of HAT's 385 images.
-Qwen2.5, sdpa, colour-fixed V_obj, decoding/vdd_cf.py (its defaults = decoding/vdd_vobj.py). Candidates from the 11-08 notes: belief/penalty
-strength, the blurred image as counterfactual (--cf blur), evidence weighted by the model's own probability (--ew prob), layers 14 and 18 next to 16.
-Rows 0-99 select (they hold rows 0-59 of the 11-05 selection), rows 100-384 are left for the table; bench Base, vdd Base and the baselines exist on all rows.
-  queue_sel     queues/hat385_v7sel.txt: the candidates on rows 0-99
-  pick JSON     rule as on 11-05 (experiments/hat.py): ALOHa above bench Base and vdd Base, RefCov >= vdd Base - 2; highest ALOHa, within 0.5 of it the
-                highest RefCov; none -> no further decoding. Writes hat385/pick-qwen-v7.txt
-  queue_test    queues/hat385_v7test.txt: the pick on rows 100-384"""
 import json,os,sys
 from pathlib import Path
 L=Path(os.environ.get('HAT_L','/home/project-b/LJW'));R=L/'vlm-grounding-steering';O=R/'outputs/rbd2-20261102';SEL=100;N=385;H=O/'hat385'

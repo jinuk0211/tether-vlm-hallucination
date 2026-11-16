@@ -1,8 +1,4 @@
 #!/bin/bash
-# App. A.1: Qwen captions with the spurious token addCriterion (77/500) excluded; gray KL, image share and lens by position
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/addcriterion_exclusion.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R; O=$R/outputs/logit-lens-20261104
 cat $O/logs/gemma-image-done 2>/dev/null; python3 -c "import json;d=json.load(open('$O/gemma-image-0-500-status.json'));print('gemma image',d['stage'],d.get('done'),d.get('sec_per_image'),d.get('last_layer_max_prob_err'),(d.get('error') or '')[-200:])"
 OMP_NUM_THREADS=6 .venv/bin/python - <<'P'

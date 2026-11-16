@@ -1,8 +1,3 @@
-"""Provisional THRONE scores while the flan-t5-xl judge is still running: the finished judge files (flan-t5-base, -large)
-are copied to diag/<rundir name>_2judges/<tag>/combined and scored with eval.throne.per_image at a voting threshold of 6,
-i.e. the same unanimity rule as the headline threshold 9 (3 judges x 3 formats), for 2 judges x 3 formats.
-Not the official metric; paired bootstrap vs base as in eval/throne.py.
-usage: python -m tether.eval.throne_partial RUNDIR TAG [TAG ...]      (env as eval/throne.py: BENCH, RBD2_SETS, RBD2_THRONE_SET, RBD2_N)"""
 import glob,json,shutil,sys
 from pathlib import Path
 import numpy as np

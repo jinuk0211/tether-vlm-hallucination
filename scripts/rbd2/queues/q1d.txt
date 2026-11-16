@@ -1,4 +1,3 @@
-# settings sweep on amber_test60 and throne_test60 first, ablations after
 amber_test60 bpos_s16a1 --alpha 1 --layer 16 --lam 1 --bpos
 amber_test60 s16a1 --alpha 1 --layer 16
 amber_test60 pen1 --pen 1

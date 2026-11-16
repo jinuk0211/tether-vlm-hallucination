@@ -1,8 +1,4 @@
 #!/bin/bash
-# Table A.5 "Word in top-5 of a patch" rows (last layer and L21) and the caption top-1 / writing-step rates
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_word_top5.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
 HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
 import torch,numpy as np

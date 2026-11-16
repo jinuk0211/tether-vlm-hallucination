@@ -1,7 +1,4 @@
 #!/bin/bash
-# 150-image check of every setting: wait for the pool workers (logs/pool150.pids), join the pieces (experiments/join_150.py),
-# score CHAIR and AMBER on the CPU, judge THRONE in four processes (GPU 4 x3, GPU 3), then score THRONE.
-# Everything goes to logs/score150.log.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 export RBD2_SETS=$O/sets RBD2_CHAIR_TEST_STATE=$R/data/hallucination-suite/chair-scorer-state.json AMBER_REPO=$R/data/amber/repo \

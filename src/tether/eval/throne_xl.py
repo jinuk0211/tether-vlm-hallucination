@@ -1,8 +1,3 @@
-"""THRONE xl columns: THRONE's own setting, three judges (flan-t5 base, large, xl) at voting threshold 9 (unanimous, 3 judges x 3
-question formats), on images 200-999 of throne_full1000, the rows of tab:throne. Below it the paper's two-judge setting (base, large; threshold 6)
-from the same code, as a check against the table. ALL (per image) and CLS (class-wise) as in diag_throne_heldout.py; paired image bootstrap vs the
-backbone's bench Base, 2000 resamples, seed 0. CPU only; a row without the judges' files is listed as missing.
-usage: BENCH=/home/project-b/LJW/bench python -m tether.eval.throne_xl   (THRONE's venv)"""
 import contextlib,glob,io,json,os,sys
 from pathlib import Path
 import numpy as np

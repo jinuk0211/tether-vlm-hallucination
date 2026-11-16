@@ -1,6 +1,3 @@
-"""Join one tag of the Gemma test run: runs/gemma_throne1000_parts/<tag>-<a>-<b>.jsonl, checked id for id against
-sets/throne_full1000.jsonl, into runs/gemma_throne1000/<tag>-0-1000.jsonl. Exit 1 while rows are missing.
-usage: python -m tether.experiments.gemma_throne_join TAG"""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');T=sys.argv[1];N=1000

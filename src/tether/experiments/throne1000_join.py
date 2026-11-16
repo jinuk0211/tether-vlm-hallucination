@@ -1,7 +1,3 @@
-"""Join our method (s16a1bl2p1) on the first 1000 full-THRONE images: rows 0-499 from runs/throne_test500_all (throne_test500
-is the first 500 rows of throne_full, same ids and images), rows 500-999 from the 50-image chunks in runs/throne_full1000_ours,
-into runs/throne_full1000/s16a1bl2p1-0-1000.jsonl next to Base and the baselines. Checked id for id against
-sets/throne_full1000.jsonl, one setting throughout (missing keys count as defaults, as in experiments/join_150.py)."""
 import glob,json,re,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');T='s16a1bl2p1';N=1000;H=500

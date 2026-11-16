@@ -1,21 +1,8 @@
-"""THRONE on the other 4,000 COCO val2017 images (the paper's THRONE runs cover the first 1,000 of the 5,000; this runs the rest with every
-baseline and the evaluation, GPUs 0 and 5). Rows 1000-4999 of sets/throne_full.jsonl = sets/throne_r4000.jsonl, decoded with the decoders and
-arguments of the 1,000-image runs (queues bl_throne_full.txt, full1000_ours.txt, gemma_bl.txt, gemma_ours.txt, v4_*_test.txt):
-  Qwen2.5  base, revis, rudder_clone (sdpa), grains_clone, vti_author (eager)  baselines/bench_qwen.py
-           s16a1bl2p1 (TETHER first config.)                                     decoding/vdd.py --alpha 1 --layer 16 --lam 2 --pen 1
-           cf_a3bl2p1 (TETHER)                                                   decoding/vdd_vobj.py --attn sdpa --alpha 3 --layer 16 --lam 2 --pen 1 --vobj qwen-vobj2cf
-  Gemma 4  base, revis, rudder_clone, grains_clone, vti                          baselines/bench_gemma.py
-           s24a1bl2p1                                                            decoding/vdd.py --model gemma --attn eager --alpha 1 --layer 24 --lam 2 --pen 1
-           cf_a3bl2p1                                                            decoding/vdd_vobj.py --attn eager --alpha 3 --layer 24 --lam 2 --pen 1 --vobj gemma-vobj2cf
-Units are block-major (4 blocks of 1,000 rows), so each finished block is complete for every method and can be judged (eval/throne_5k_judge.py) and scored
-(eval/throne_5k.py) before the rest.
-usage: python -m tether.experiments.throne_5k sets | queues | repro | join | status"""
 import json,sys,time,glob,os
 from pathlib import Path
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'outputs/rbd2-20261102';S=O/'sets';Q=O/'queues';RUNS=O/'runs'
 V=str(R/'outputs/rbd-20261030/collect')
 def read(p):return [json.loads(l) for l in open(p) if l.strip()]
-# kind, tag, chunk, args (identical to the 1,000-image queues)
 METH={'qwen':[('qv','s16a1bl2p1',50,'--alpha 1 --layer 16 --lam 2 --pen 1'),
               ('qb','vti_author',50,'--attn eager'),
               ('v4q','cf_a3bl2p1',100,f'--attn sdpa --alpha 3 --layer 16 --lam 2 --pen 1 --vobj {V}/qwen-vobj2cf.json'),
@@ -23,7 +10,6 @@ METH={'qwen':[('qv','s16a1bl2p1',50,'--alpha 1 --layer 16 --lam 2 --pen 1'),
       'gemma':[('gv','s24a1bl2p1',50,'--alpha 1 --layer 24 --lam 2 --pen 1'),
                ('v4g','cf_a3bl2p1',50,f'--attn eager --alpha 3 --layer 24 --lam 2 --pen 1 --vobj {V}/gemma-vobj2cf.json'),
                ('gb','rudder_clone',100,''),('gb','base',100,''),('gb','revis',100,''),('gb','vti',100,''),('gb','grains_clone',100,'')]}
-# rows of the stored 1,000-image runs that were decoded on an A6000 (GPUs 0 and 5 are A6000s; A5000 and A6000 greedy captions differ)
 REPRO={'qwen':{'base':(0,2,'throne_full1000'),'revis':(0,2,'throne_full1000'),'rudder_clone':(0,2,'throne_full1000'),'grains_clone':(0,2,'throne_full1000'),
                'vti_author':(100,102,'throne_full1000'),'s16a1bl2p1':(500,502,'throne_full1000'),'cf_a3bl2p1':(250,252,'qwen_cf_test_all')},
        'gemma':{t:(100,102,'gemma_throne1000') for t in ('base','revis','rudder_clone','grains_clone','vti')}|

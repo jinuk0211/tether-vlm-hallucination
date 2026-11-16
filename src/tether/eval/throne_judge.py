@@ -1,7 +1,3 @@
-"""Run THRONE's judges (eval.throne.judge, unchanged) for some tags only, so two GPUs can split the work.
-Writes eval/<tag>/responses.json exactly as eval.throne.main does; eval/throne.py then only scores.
-RBD2_JUDGES=base,large (optional) runs only those flan-t5 judges (e.g. to skip flan-t5-xl).
-usage: python -m tether.eval.throne_judge GPU_UUID RUNDIR TAG [TAG ...]"""
 import json,os,shutil,sys
 from pathlib import Path
 from tether.eval import throne as S

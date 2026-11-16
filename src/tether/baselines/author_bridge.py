@@ -1,9 +1,3 @@
-"""Call the pinned author functions (RUDDER, GrAInS) on Gemma inputs and outputs.
-
-No local re-implementation of either baseline is used. CLI helpers are pulled out
-by AST so that importing them does not run unrelated dataset/model loaders; each
-extracted function keeps its author source and code filename.
-"""
 import ast
 import contextlib
 import importlib.util
@@ -44,8 +38,6 @@ def load_authors():
     package.__path__ = [str(gradient_dir)]
     sys.modules[package.__name__] = package
     ig_utils = load_file('ljw_author_gradient.utils', gradient_dir / 'utils.py')
-    # The author's Captum integrand/20 quadrature nodes stay unchanged. Only
-    # scheduling is bounded to one quadrature sample to fit the shared GPU.
     original_ig = ig_utils.IntegratedGradients
     class BoundedIG(original_ig):
         def attribute(self, inputs, *args, **kwargs):
@@ -68,7 +60,6 @@ def load_authors():
 
 
 class NativeBatchProcessor:
-    """Pass the native Gemma batch straight through to CARD extraction."""
     def __init__(self, batch):
         self.batch = batch
     def __call__(self, **kwargs):
@@ -113,7 +104,6 @@ def rudder_context(adapter, batch, task, authors, diagnostics=None):
 
 
 class NamedLayerView:
-    """Map the exact author hook's supported path to Gemma's decoder block."""
     def __init__(self, module, layer):
         self.module, self.layer = module, layer
     def named_modules(self):
@@ -121,15 +111,6 @@ class NamedLayerView:
 
 
 class GemmaAttributionAPI:
-    """Supply Gemma's token-identity PLE for original token-embedding IG.
-
-    Gemma cannot reverse interpolated embeddings into token IDs. Its documented
-    inputs_embeds interface instead accepts precomputed per_layer_inputs. Token
-    identities stay fixed along IG; the model still differentiates its ordinary
-    context projection of the interpolated embeddings. Image placeholders use
-    the same PAD substitution as native Gemma's input_ids forward. This is an
-    architecture adapter, not full-path multimodal IG.
-    """
     def __init__(self, model):
         self.native=model
         self.identities=[]
@@ -168,9 +149,6 @@ def grains_context(adapter, vector, authors, diagnostics=None):
     module = adapter.layers[layer]
     counts = {'calls': 0, 'changed_elements': 0, 'total_elements': 0,
               'max_abs_delta': 0.0, 'layer': layer, 'alpha': alpha}
-    # Exact tuple contract required by the original hook. Hooks run in insertion
-    # order: Tensor -> tuple -> author hook -> Tensor. The author dim=1 norm and
-    # 10x multiplier are intentionally retained, including decode-time quirks.
     def wrap(_m, _args, output):
         if not isinstance(output, torch.Tensor):
             raise TypeError('Expected native Gemma Tensor decoder output')

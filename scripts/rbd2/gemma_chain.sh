@@ -1,17 +1,4 @@
 #!/bin/bash
-# Gemma 4 E4B on the first 1000 full-THRONE images (throne_full1000, the images of the Qwen table): Base, REVIS, VTI (own
-# implementation, as in the Gemma CHAIR/POPE table), RUDDER, GrAInS (baselines/bench_gemma.py) and our method (decoding/vdd.py --model gemma,
-# eager like the Gemma baselines). THRONE with flan-t5-base and -large only, eval/throne_partial.py, paired bootstrap vs Base.
-# Our setting is picked on 60 dev images (throne_full rows 4940-4999, disjoint from the test 1000) before any test row of
-# ours is decoded; rule in experiments/gemma_throne_pick.py.
-# Smoke test first (2 dev images, 40 tokens: vdd base + s24a1bl2p1, each baselines.bench_gemma method) on GPU 5 once the Qwen
-# full-THRONE workers there (pb_full1000_ours.sh o5a/o5b) exit; it also measures one Gemma worker's GPU memory, which
-# becomes the workers' free-memory gate. SMOKE_FAILED stops everything.
-# GPUs 5 and 3. Workers: GPU 5 x1 after the smoke test and x2 after the dev pick (so the dev judges have room), GPU 3 once
-# the AMBER worker there (m3) exits; every unit waits for enough free memory (GPU 5 is shared).
-# Judges: dev on the first of GPUs 5, 3 with 12 GB free; each test tag once its 1000 rows exist, on GPU 5 or 3 with no
-# judge job and 12 GB free. Log: logs/gemma.log, GEMMA_DONE.
-# usage: gemma_chain.sh
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gemma.log; DEV=$O/runs/gemma_throne_dev60; TD=$O/runs/gemma_throne1000
@@ -39,7 +26,6 @@ PY
 { echo "# baselines on the test 1000, method by method so judging can start early"
   for m in base rudder_clone grains_clone revis vti; do for b in $(seq 0 100 900); do
     echo "bench throne_full1000 gemma_throne1000_parts $m $b $((b+100))"; done; done; } > $O/queues/gemma_bl.txt
-# smoke test on GPU 5
 while alive 2887433 2895291; do sleep 60; done
 echo "=== $(date +%T) smoke test on GPU 5" >> $LOG
 SM=$O/runs/gemma_smoke; rm -rf $SM; mkdir -p $SM
@@ -55,7 +41,7 @@ U5=$(uuid 5); B0=$(nvidia-smi --id=5 --query-gpu=memory.used --format=csv,nohead
     .venv/bin/python -u -m tether.baselines.bench_gemma --method $m --set $O/sets/gsmoke2.jsonl --output $SM --start 0 --end 1 || exit 1; done
 ) > $O/logs/gemma_smoke.log 2>&1; RC=$?
 kill $MS
-PEAK=$(sort -n $SM/mem.txt | tail -1); MF=$(( PEAK - B0 + 2500 )); [ $MF -lt 16000 ] && MF=16000; [ $MF -gt 22500 ] && MF=22500   # GPU 3 has 24 GB; other jobs on GPU 5 can inflate the delta
+PEAK=$(sort -n $SM/mem.txt | tail -1); MF=$(( PEAK - B0 + 2500 )); [ $MF -lt 16000 ] && MF=16000; [ $MF -gt 22500 ] && MF=22500
 { echo "smoke rc $RC, GPU 5 memory ${B0} -> peak ${PEAK} MiB; worker free-memory gate ${MF} MiB"
   for f in $SM/*.jsonl; do echo "--- $(basename $f)"; .venv/bin/python -c "
 import json,sys
@@ -68,10 +54,8 @@ start(){ G=$1; N=$2; D=$3; shift 3
     exec bash scripts/rbd2/gemma_pool.sh $G $N $MF ) & W+=($!); }
 start 5 g5a 0 0
 start 3 g3 0 3761973
-# the second GPU 5 worker joins after the dev pick, so the dev judges have room on GPU 5
 ( until [ -f $O/queues/gemma_ours.txt ] || [ -f $DEV/PICK_FAILED ]; do sleep 60; done
   echo "=== $(date +%T) GPU 5 worker g5b joins" >> $LOG; exec bash scripts/rbd2/gemma_pool.sh 5 g5b $MF ) & W+=($!)
-# dev: judge, pick, test queue for ours (if a dev unit fails twice: no pick, baselines only)
 devfail(){ for f in $O/claims_gemma/fail-gemma_throne_dev60-*; do [ -f $f ] && [ $(wc -l < $f) -ge 2 ] && return 0; done; return 1; }
 until [ $(cat $DEV/{base,s24a1bl2p1,s20a1bl2p1,s28a1bl2p1,bl2p1}-0-60.jsonl 2>/dev/null | wc -l) -ge 300 ] || devfail; do sleep 60; done
 P=
@@ -85,12 +69,11 @@ else
   RBD2_JUDGES=base $L/venvs/throne/bin/python -m tether.eval.throne_judge $(uuid $JG) $DEV $DT > $O/logs/gjudge-dev-base.log 2>&1 & JB=$!
   sleep 30
   RBD2_JUDGES=large $L/venvs/throne/bin/python -m tether.eval.throne_judge $(uuid $JG) $DEV $DT > $O/logs/gjudge-dev-large.log 2>&1
-  wait $JB   # not a bare wait: the worker subshells are children too
+  wait $JB
   { echo "=== $(date +%T) dev pick (2 judges)"; $L/venvs/throne/bin/python -m tether.experiments.gemma_throne_pick 2>&1 | grep -v 'it/s'; } >> $LOG
   P=$(grep -o '^picked .*' $LOG | tail -1 | cut -d' ' -f2)
   [ -n "$P" ] || { echo "=== $(date +%T) PICK_FAILED: baselines only" >> $LOG; touch $DEV/PICK_FAILED; }
 fi
-# test: join and judge each tag once complete
 export RBD2_THRONE_SET=throne_full1000 RBD2_N=1000
 judge(){ T=$1; U=$(uuid $2)
   RBD2_JUDGES=base $L/venvs/throne/bin/python -m tether.eval.throne_judge $U $TD $T > $O/logs/gjudge-$T-base.log 2>&1 & JB=$!
@@ -98,8 +81,6 @@ judge(){ T=$1; U=$(uuid $2)
   RBD2_JUDGES=large $L/venvs/throne/bin/python -m tether.eval.throne_judge $U $TD $T > $O/logs/gjudge-$T-large.log 2>&1
   wait $JB; }
 judged(){ ls $TD/eval/$1/combined/*flan-t5-base.json $TD/eval/$1/combined/*flan-t5-large.json >/dev/null 2>&1; }
-# a tag is judged once its 1000 rows exist, on GPU 5 or 3 with no judge job and >= 12 GB free; a failed judge
-# job is retried twice
 TODO=($P base rudder_clone grains_clone revis vti); declare -A JOB JT TRY
 while :; do
   for g in "${!JOB[@]}"; do alive ${JOB[$g]} && continue; T=${JT[$g]}; unset JOB[$g] JT[$g]

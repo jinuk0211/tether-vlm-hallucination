@@ -1,9 +1,3 @@
-"""Score every complete run in a set's run directory against its Base (tag 'base'), paired bootstrap over images
-(2000, seed 0).
-  chair_*  unmodified CHAIR scorer from the cached constructor state (as eval/chair_subset.py)
-  amber_*  official AMBER generative matching per image (eval.amber.per_image); aggregates checked against the
-           official inference.py on the same responses
-usage: python -m tether.eval.sets SET RUNDIR      (SET in chair_dev60 chair_test60 amber_dev60 amber_test60; rows {tag}-0-60.jsonl)"""
 import glob,hashlib,json,os,sys,tempfile
 from pathlib import Path
 import numpy as np
@@ -11,7 +5,7 @@ import numpy as np
 R=Path('/home/project-b/LJW/vlm-grounding-steering');W=Path('/workspace')
 STATE={'chair_dev60':R/'data/chair-dev-train2014-100/chair-scorer-state.json','chair_test60':Path(os.environ.get('RBD2_CHAIR_TEST_STATE',W/'rbd_pilot/chair-test100-scorer-state.json'))}
 SETS=Path(os.environ.get('RBD2_SETS',W/'sets'))
-N=int(os.environ.get('RBD2_N','60'));STATE['chair_test120']=STATE['chair_test150']=STATE['chair_test500']=STATE['chair_test60']  # project-b: outputs/rbd2-20261102/sets
+N=int(os.environ.get('RBD2_N','60'));STATE['chair_test120']=STATE['chair_test150']=STATE['chair_test500']=STATE['chair_test60']
 def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s.strip()]
 rng=np.random.default_rng(0)
 

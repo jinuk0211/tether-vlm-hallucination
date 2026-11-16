@@ -1,10 +1,3 @@
-"""Put the inputs decoding/pilot/decode.py expects where it expects them (the old server's paths), and fetch the 100+100 images.
-
-- model config.json under analysis.read_gap.collect.MODELS (configs/*.json model block, weights already in HF_HOME)
-- r(t) source: results/visual_decay_20261030/*-summary.json -> outputs/visual-decay-20261030/
-- V_obj: decoding.common.build_vobj on each model's tokenizer -> outputs/rbd-20261030/collect/{model}-vobj2.json
-- CHAIR test images (first 100 of the 500 test manifest) and AMBER images, sha256-checked against the manifests
-"""
 import hashlib,json,shutil,sys,urllib.request,zipfile
 from pathlib import Path
 from tether.analysis.read_gap import collect as C
@@ -14,7 +7,7 @@ W=Path('/workspace')
 def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s.strip()]
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
-LOCAL={'qwen':'/workspace/models/qwen2.5-vl-7b-instruct','gemma':'/workspace/models/gemma-4-e4b-it'}  # pdl.py, pinned revision
+LOCAL={'qwen':'/workspace/models/qwen2.5-vl-7b-instruct','gemma':'/workspace/models/gemma-4-e4b-it'}
 
 def configs():
     for m,f in (('qwen','qwen2_5_vl_7b.json'),('gemma','gemma4_e4b.json')):

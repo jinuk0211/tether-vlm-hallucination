@@ -1,4 +1,3 @@
-"""Sample 5000 COCO train2014 images (seed 42) and write the list + 80-class multi-hot labels."""
 import json,random
 from pathlib import Path
 R=Path('/home/project-b/LJW/vlm-grounding-steering');O=R/'data/coco-train2014-probe5000'

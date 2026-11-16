@@ -1,10 +1,3 @@
-"""Qwen author-VTI alpha sweep (2026-10-30: alpha 0.45 / 0.225).
-
-Same model load, author artifact, original install() and VTILayer as
-the alpha-0.9 CHAIR run; the only change is the alpha passed to install()
-(0.9 in the completed run). Reads the existing VTI artifact read-only and
-writes only under the sweep folder given by --output.
-"""
 import argparse
 import json
 import os
@@ -47,7 +40,6 @@ def main(out, index, alpha, bench, start, end):
     target=out/f'alpha{alpha}';target.mkdir(parents=True,exist_ok=True)
     name=f'{bench}-{start}-{end}'
     rows_file=target/f'{name}.jsonl';state_file=target/f'{name}-status.json'
-    # Resume only an exact, newline-terminated prefix of this file's own rows.
     prefix=original.read(rows_file) if rows_file.exists() else []
     assert not prefix or rows_file.read_bytes().endswith(b'\n')
     for row,i in zip(prefix,range(start,end)):

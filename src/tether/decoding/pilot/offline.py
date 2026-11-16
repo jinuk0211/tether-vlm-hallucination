@@ -1,16 +1,3 @@
-"""RBD pilot step 1 (offline): does a reliability-weighted belief over V_obj separate hallucinated from correct
-first mentions better than the token's own log p?
-
-belief   A_t(o) = sum_{u<=t} r(u) * log p_u(o),  log b_t = A_t - logsumexp_o A_t      (uniform prior)
-scores at the first mention of an object (step t_m, token o*):
-  logp            log p_{t_m}(o*)                       (baseline)
-  belief_prev     log b_{t_m-1}(o*)                     (evidence before the model writes it)
-  belief          log b_{t_m}(o*)
-  logp+lam*belief the decoding rule's adjusted logit, lam in LAMS
-r kinds: measured (gray-KL curve), const (r=1), step0 (only the first step counts).
-AUROC = P(score of a correct mention > score of a hallucinated one); position-matched = pair-weighted mean of
-within-bin AUROCs; 95% CIs by bootstrap over images; differences vs logp are paired on the same resamples.
-"""
 import json,sys
 from pathlib import Path
 import numpy as np

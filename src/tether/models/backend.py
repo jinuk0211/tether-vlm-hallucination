@@ -1,23 +1,17 @@
-"""Hugging Face model adapters. Nothing is downloaded before ``load_adapter``."""
-
-from __future__ import annotations
-
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import torch
 from PIL import Image, ImageOps
 
 
-def _attribute(root: Any, path: str) -> Any:
+def _attribute(root, path):
     value = root
     for part in path.split("."):
         value = getattr(value, part)
     return value
 
 
-def _first_path(root: Any, paths: tuple[str, ...]) -> Any:
+def _first_path(root, paths):
     for path in paths:
         try:
             return _attribute(root, path)
@@ -27,13 +21,7 @@ def _first_path(root: Any, paths: tuple[str, ...]) -> Any:
 
 
 class ModelAdapter:
-    """Batch-one image/text inference, differentiable margins and safe labels.
-
-    Head interventions act on ``o_proj`` inputs: these contain query-head
-    outputs even when the model uses grouped-query attention.
-    """
-
-    def __init__(self, model: Any, processor: Any, config: Mapping[str, Any]) -> None:
+    def __init__(self, model, processor, config):
         self.model = model
         self.processor = processor
         self.config = dict(config)
@@ -68,7 +56,6 @@ class ModelAdapter:
         self.num_heads = int(text_config.num_attention_heads)
         self.hidden_size = int(text_config.hidden_size)
         self.attn_projections = [layer.self_attn.o_proj for layer in self.layers]
-        # RUDDER acts on the actual attention residual update, after Gemma's norm.
         self.attn_updates = ([layer.post_attention_layernorm for layer in self.layers]
                              if self.model_type == "gemma4" else self.attn_projections)
         for projection in self.attn_projections:
@@ -80,16 +67,14 @@ class ModelAdapter:
             raise ValueError("Yes and No must map to different tokens")
         self.model.eval()
 
-    def _answer_token_id(self, text: str) -> int:
+    def _answer_token_id(self, text):
         ids = self.processor.tokenizer.encode(text, add_special_tokens=False)
         if len(ids) != 1:
             raise ValueError(f"Answer token {text!r} must tokenize to exactly one token; got {ids}")
         return int(ids[0])
 
-    def prepare(
-        self, image_path: str | None, prompt: str, answer: str | None = None
-    ) -> dict[str, torch.Tensor]:
-        content: list[dict[str, str]] = []
+    def prepare(self, image_path, prompt, answer=None):
+        content = []
         image = None
         if image_path is not None:
             with Image.open(Path(image_path)) as source:
@@ -105,7 +90,7 @@ class ModelAdapter:
         prompt_text = self.processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        processor_kwargs: dict[str, Any] = {"return_tensors": "pt"}
+        processor_kwargs = {"return_tensors": "pt"}
         if image is not None:
             processor_kwargs["images"] = [image]
         prompt_batch = self.processor(text=[prompt_text], **processor_kwargs)
@@ -132,22 +117,21 @@ class ModelAdapter:
             if torch.is_tensor(value)
         }
 
-    def forward(self, batch: Mapping[str, torch.Tensor]) -> Any:
+    def forward(self, batch):
         inputs = dict(batch)
         inputs["use_cache"] = False
         inputs["return_dict"] = True
         return self.model(**inputs)
 
-    def answer_margin(self, batch: Mapping[str, torch.Tensor]) -> torch.Tensor:
+    def answer_margin(self, batch):
         logits = self.forward(batch).logits
         return logits[0, -1, self.yes_token_id] - logits[0, -1, self.no_token_id]
 
     @torch.no_grad()
-    def generate(self, batch: Mapping[str, torch.Tensor], max_new_tokens: int) -> str:
+    def generate(self, batch, max_new_tokens):
         if max_new_tokens < 1:
             raise ValueError("max_new_tokens must be positive")
         inputs = {key: value for key, value in batch.items() if key != "labels"}
-        # HF generate does not inherit the use_cache=False of our forward wrapper.
         outputs = self.model.generate(
             **inputs,
             do_sample=False,
@@ -162,8 +146,7 @@ class ModelAdapter:
         )[0]
 
 
-def load_adapter(config: Mapping[str, Any]) -> ModelAdapter:
-    """Load the checkpoint named in the config; the only place that downloads weights."""
+def load_adapter(config):
     from transformers import (
         AutoProcessor,
         Gemma4ForConditionalGeneration,

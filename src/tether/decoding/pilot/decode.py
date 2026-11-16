@@ -1,14 +1,3 @@
-"""RBD decoding pilot: reliability-weighted belief over object tokens (+ optional mode steering), no extra forward.
-
-At decoding step t (caption position), with r(t) from the visual_decay gray-KL curve:
-  steering  h_t^L += alpha * (1 - r(t)) * d_L        (decode steps only; d_L from decoding/pilot/direction.py)
-  belief    A(o) += r(t) * log p_t(o),  o in V_obj;  log b = A - logsumexp(A)
-  logits    l_t(o) += lam * clip(log b(o) + log|V_obj|, -clip, clip)   (0 for a uniform belief; objects
-            already written are left alone)
-then greedy, with the model's own generation config (Qwen: repetition_penalty 1.05), max 512 tokens.
-lam=0, alpha=0 is plain Base decoding through the same code path. Output rows match decoding.selfverify
-so eval/dev.py scores them.
-"""
 import argparse,json,math,os,time,traceback
 from pathlib import Path
 import torch
@@ -25,13 +14,13 @@ class Belief(LogitsProcessor):
         self.st=st;self.vidx=vidx;self.rf=rf;self.lam=lam;self.clip=clip;self.pl=prompt_len;self.uniform=uniform
         self.A=torch.zeros(len(vidx),device=vidx.device);self.logV=math.log(len(vidx));self.trace=[]
     def __call__(self,input_ids,scores):
-        t=input_ids.shape[1]-self.pl;self.st.t=t+1  # steering for the next forward uses the next position
+        t=input_ids.shape[1]-self.pl;self.st.t=t+1
         if self.lam:
             lp=scores[0].float().log_softmax(-1)[self.vidx]
             self.A+=self.rf(t)*lp
             adj=self.lam*(self.A-torch.logsumexp(self.A,0)+self.logV).clamp(-self.clip,self.clip)
             done=torch.isin(self.vidx,input_ids[0,self.pl:])
-            if self.uniform:adj=adj[~done].mean().expand_as(adj).clone() if (~done).any() else adj  # control: same average push, no object-specific belief
+            if self.uniform:adj=adj[~done].mean().expand_as(adj).clone() if (~done).any() else adj
             adj=torch.where(done,torch.zeros_like(adj),adj)
             scores[0,self.vidx]+=adj.to(scores.dtype)
         return scores
@@ -42,7 +31,7 @@ class Steer:
     def hook(self,mod,args,out):
         h=out[0] if isinstance(out,tuple) else out
         if not self.st.on or h.shape[1]!=1 or not self.alpha:return None
-        h=h+(self.alpha*(1-self.rf(self.st.t))*self.d).to(h.dtype)   # this forward produces the logits for step st.t
+        h=h+(self.alpha*(1-self.rf(self.st.t))*self.d).to(h.dtype)
         return (h,)+tuple(out[1:]) if isinstance(out,tuple) else h
 
 def main(a):
@@ -64,7 +53,7 @@ def main(a):
         st=State()
         if a.alpha:
             d=torch.load(ROOT/f'outputs/rbd-20261030/dvec/{a.model}-dvec.pt',weights_only=False)['d'][a.layer].to(adapter.device)
-            Steer(adapter.layers[a.layer-1],st,d,a.alpha,rf)   # d[l] is the output of decoder layer l (1-based)
+            Steer(adapter.layers[a.layer-1],st,d,a.alpha,rf)
         update(stage='running',vobj=len(vobj))
         with rows_file.open('a') as f:
             for i,ref in enumerate(refs[len(done):],start=len(done)):

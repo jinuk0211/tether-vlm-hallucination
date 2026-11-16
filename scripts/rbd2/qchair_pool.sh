@@ -1,6 +1,4 @@
 #!/bin/bash
-# Worker pool for Qwen3-VL CHAIR.
-# usage: qchair_pool.sh GPU_INDEX WORKER_NAME MIN_FREE_MIB
 G=$1; W=$2; MF=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_qchair; mkdir -p $L $C
 QD=$O/queues/qchair_dev.txt; QO=$O/queues/qchair_ours.txt; QB=$O/queues/qchair_base.txt; PF=$O/runs/qchair_t60/PICK_FAILED

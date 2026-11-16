@@ -1,16 +1,4 @@
 #!/bin/bash
-# Gemma 4 E4B CHAIR, our method first. Workers on GPUs 2 and 3, plus GPU 5 (x2) once the Qwen full-THRONE run there
-# (pb_full1000_ours.sh) ends. Test = chair_test500: the 500
-# images, prompt and 512 tokens of the Gemma CHAIR table (outputs/gemma-grains-fp16-v2-20261029-1793246507/chair).
-# Our setting is picked on chair_dev60 (COCO train2014, disjoint from the test images) before any test row of ours is
-# decoded. Candidates: the Qwen CHAIR setting (alpha 2, lam 1, pen 0.5) at Gemma layers 20/24/28 (gemma_chain.sh moves the
-# THRONE setting the same way) and the belief term alone (bl1p05). Rule, fixed before any dev result: among candidates
-# with dev recall >= vdd Base recall - 2, lowest CHAIR_s, ties by CHAIR_i; if none qualifies, highest F1
-# (P = 100 - CHAIR_i, R = recall).
-# Base and ours both through decoding/vdd.py --model gemma --attn eager (ours is compared with its own vdd Base, as for Qwen),
-# then scored twice: ours vs vdd Base, and ours next to the Gemma table rows (base, revis, rudder_clone, grains_clone, vti).
-# Smoke test first on GPU 2 (1 dev image, 512 tokens, vdd base + s24a2bl1p05); its peak memory sets the workers' gate.
-# Log: logs/gchair.log, GCHAIR_DONE.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gchair.log; DEV=$O/runs/gchair_dev60; TD=$O/runs/gchair_test500
@@ -32,7 +20,6 @@ assert not {Path(r['image']).name for r in d}&{Path(r['image']).name for r in t}
 (S/'gchair_smoke1.jsonl').write_text(json.dumps(d[0])+'\n')
 print('sets ok: chair_test500 = Gemma table CHAIR ids/prompt/512 tokens; chair_dev60 disjoint;',repr(t[0]['prompt']))
 PY
-# smoke test on GPU 2
 SM=$O/runs/gchair_smoke; rm -rf "${SM:?}"; mkdir -p $SM
 B0=$(nvidia-smi --id=2 --query-gpu=memory.used --format=csv,noheader,nounits)
 ( while :; do nvidia-smi --id=2 --query-gpu=memory.used --format=csv,noheader,nounits; sleep 2; done ) > $SM/mem.txt & MS=$!
@@ -65,7 +52,6 @@ if [ $MF -le 23500 ]; then start 2 c2 0 0; start 3 c3 0 0
 else echo "=== $(date +%T) gate $MF MiB > 24 GB GPUs: GPU 5 only" >> $LOG; fi
 start 5 c5a 0 2887430
 start 5 c5b 150 2887430
-# dev pick
 devfail(){ for f in $O/claims_gchair/fail-gchair_dev60-*; do [ -f $f ] && [ $(wc -l < $f) -ge 2 ] && return 0; done; return 1; }
 devdone(){ for t in $DT; do for b in 0 30; do f=$DEV/$t-$b-$((b+30)).jsonl; [ -f $f ] && [ $(wc -l < $f) -ge 30 ] || return 1; done; done; }
 until devdone || devfail; do sleep 60; done

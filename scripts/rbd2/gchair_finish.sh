@@ -1,11 +1,4 @@
 #!/bin/bash
-# Gemma CHAIR without finishing the dev run: only the 500 test images (replaces gchair_chain.sh, which waits for the dev). Ours is
-# fixed at s24a2bl1p05: the Qwen CHAIR setting (layer 16 of 28, alpha 2, lam 1, pen 0.5) at the same relative depth of
-# Gemma's 42 layers, which was also the best of the four candidates on the 30 dev images that had finished (CHAIR_s 23.3 vs
-# vdd Base 36.7, recall 62.2 vs 60.2; dev images are COCO train2014, disjoint from the test).
-# The gchair_pool.sh workers keep running; gchair_ours.txt now holds the test units (ours and vdd Base interleaved).
-# This script waits for them, joins, and scores: ours vs vdd Base, and ours next to the Gemma table rows.
-# Log: logs/gchair.log, GCHAIR_DONE.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gchair.log; TD=$O/runs/gchair_test500; C=$O/claims_gchair; P=s24a2bl1p05

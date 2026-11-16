@@ -1,10 +1,3 @@
-"""Official REVIS artifacts for Qwen3-VL-8B (the repo's baselines/local.py REVIS is a paper-derived rewrite whose Qwen2.5 vector has
-cosine -0.02 with the official one). upstream/Revis = github.com/antgroup/Revis 75f4d29, unmodified.
-  vectors    official _calculate_das_vectors_internal on its data/OH_sampled_data_100.json (100 caption pairs, COCO train2014 images in data/revis-official/images); see vectors() for the path used
-  calibrate  layer_select.py logic on the first 100 rows of data/coco_pope_calibration_merged.jsonl: backward search from the last layer, first layer with positive separability,
-             tau = 80th percentile of factual risks. Plots dropped (no matplotlib here), otherwise as the official file, including its input path for non-Qwen2 models.
-k=80 and alpha=1.6 are the paper's Qwen2.5-VL-7B values (the paper gives none for Qwen3). Output: outputs/qwen3-vl8b/revis-official/{vectors.pt,calibration.json}
-usage: python -m tether.baselines.revis_official"""
 import json,os,random,sys,time,types
 from pathlib import Path
 import numpy as np
@@ -19,19 +12,17 @@ def load():
     assert a.model_type=='qwen3_vl' and len(a.layers)==36;return a
 def vectors(a):
     sys.path[:0]=[str(U),str(ROOT/'.author-deps')]
-    sys.modules['qwen_vl_utils']=types.SimpleNamespace(process_vision_info=None)   # only called on the official Qwen2.5 path, never for model_name "Qwen3"
+    sys.modules['qwen_vl_utils']=types.SimpleNamespace(process_vision_info=None)
     from steering_utils.vector_calculator import _calculate_das_vectors_internal as calc
     m=a.model
-    def to_device(_m,args,kw):return args,{k:(x.to(a.device) if torch.is_tensor(x) else x) for k,x in kw.items()}   # the official Qwen3 branch relies on device_map="auto" for this
+    def to_device(_m,args,kw):return args,{k:(x.to(a.device) if torch.is_tensor(x) else x) for k,x in kw.items()}
     pre=m.register_forward_pre_hook(to_device,with_kwargs=True)
     if not hasattr(m,'language_model') and getattr(m.config,'num_hidden_layers',None) is None:
-        m.config.num_hidden_layers=len(a.layers);print('num_hidden_layers set on the top config:',len(a.layers),flush=True)   # the official code would fall back to 33 layers
+        m.config.num_hidden_layers=len(a.layers);print('num_hidden_layers set on the top config:',len(a.layers),flush=True)
     def run(name):
         random.seed(42);np.random.seed(42);torch.manual_seed(42)
         with torch.no_grad():x=calc(m,a.processor,str(U/'data/OH_sampled_data_100.json'),str(IMG),name)
         assert sorted(x)==list(range(37)),sorted(x);return x
-    # Used: the official function's general path (model_name other than "Qwen3"): same question and answer with and without the image, no image token without an image, as the paper's definition.
-    # Saved for comparison only: its branch for "Qwen3", marked TODO upstream: without an image it keeps one image token, asks a different question and appends a generation prompt after the answer.
     v=run('Qwen');w=run('Qwen3');pre.remove()
     torch.save(v,OUT/'vectors.pt');torch.save(w,OUT/'vectors-qwen3-branch.pt')
     print('vectors',len(v),{k:round(float(v[k]['visual'].norm()),1) for k in (20,28,32,36)},'cos with the Qwen3 branch',{k:round(float(F.cosine_similarity(v[k]['visual'],w[k]['visual'],dim=0)),3) for k in (20,28,32,36)},flush=True)
@@ -61,7 +52,7 @@ def calibrate(a,k=80.0,min_layer=10,n=100):
             (OUT/'calibration.json').write_text(json.dumps(dict(layer=L,tau=res[L]['tau'],k=k,alpha=1.6,separability=res[L]['separability'],search=res,time=time.strftime('%F %T')),indent=1));print('L*',L,'tau',res[L]['tau'],flush=True);return
     raise SystemExit('no layer has positive separability (or no false positives in the calibration rows)')
 if __name__=='__main__':
-    a=load()   # one model load for both stages, so the GPU's memory is never released in between
+    a=load()
     if not (OUT/'vectors.pt').exists():vectors(a)
     calibrate(a)
     print('REVIS_ARTIFACTS_DONE',flush=True)

@@ -1,4 +1,3 @@
-"""Qwen suite worker: generates every row, resumes from complete prefixes."""
 import argparse
 import contextlib
 import hashlib

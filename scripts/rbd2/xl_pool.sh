@@ -1,8 +1,4 @@
 #!/bin/bash
-# Worker for the THRONE xl judgments (after_v7.sh). Queue lines "RUNDIR TAG" (runs/RUNDIR/eval/TAG). A unit is claimed with mkdir in claims_xl only
-# when the GPU has 16000 MiB free twice, 10-30 s apart; it is done when eval/TAG/combined holds the flan-t5-xl file. Out-of-memory is not counted
-# (back off 1-3 min); other failures twice -> skipped. Leaves as soon as no unit is left to claim (units that other workers judge are theirs),
-# so the caller moves on to its next queue.    usage: xl_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; C=$O/claims_xl; mkdir -p $C $O/logs; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}

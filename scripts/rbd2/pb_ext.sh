@@ -1,6 +1,4 @@
 #!/bin/bash
-# Decode images 60-119 of a 120-image set for the configs in LISTFILE ("TAG args..."), in order, on one GPU.
-# usage: pb_ext.sh GPU_INDEX SET120 LISTFILE     (rows -> runs/SET120/TAG-60-120.jsonl; partial rows are resumed)
 G=$1; S=$2; Q=$3
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; OUT=$O/runs/$S; mkdir -p $OUT
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

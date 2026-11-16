@@ -1,22 +1,3 @@
-"""E1: at the query that predicts an object mention, does an intervention lower log p of hallucinated
-objects while leaving correct ones alone?
-
-Teacher forcing on the same 100 Base captions as E0' ({model}-n100.pt). Every intervention acts at
-the query position of every labelled mention at once (what a position-gated decoder would do):
-  probe_away_k / probe_toward_k  h_L <- h_L -/+ k*sigma*u at the output of decoder layer L. u = unit direction
-        that raises the T1 probe logit ("asked, the model would deny this object"), fitted on the E0'
-        captions that are NOT in the 100 (no overlap); L = best T1 layer by CV on those captions;
-        sigma = std of h_L.u there.
-  random_k     the same shift along a fixed random unit vector (specificity control)
-  reread_b_S   +b on the attention logits from that query to every image key, layer set S (all / late half)
-Per mention: d log p of the mention's first token vs no intervention, top-1 flip (argmax before, not after),
-KL at that position; per caption: mean KL on the other caption positions (collateral).
-
-  --fit       fit u on {model}-n*-all.pt minus the 100 test captions -> {model}-e1-direction.pt
-  --conds     run a subset of conditions -> {model}-e1-{tag}.pt
-  --summarize merge -> {model}-e1-summary.json
-Writes only under --output.
-"""
 import argparse,glob,json,os,sys,time,traceback
 from pathlib import Path
 import numpy as np
@@ -30,14 +11,13 @@ def all_conditions():
     c=['base']+[f'probe_away_{k}' for k in KS]+[f'probe_toward_{k}' for k in KS]+[f'random_{k}' for k in (4,8,16,32)]
     return c+[f'reread_{b:g}_{s}' for b in BETAS for s in ('all','late')]
 
-# ------------------------------------------------------------------ direction
 def fit_direction(a):
     from tether.analysis.probe import analyze as V
     test=torch.load(a.output/f'{a.model}-n100.pt',weights_only=False);test_ids={m['image_id'] for m in test['meta']}
     f=sorted(glob.glob(str(a.output/f'{a.model}-n*-all.pt')));assert len(f)==1,f
     d=torch.load(f[0],weights_only=False);NL=d['n_layers']
     keep=[i for i,m in enumerate(d['meta']) if m['first_mention'] and m['image_id'] not in test_ids]
-    M=[d['meta'][i] for i in keep];H=d['h_real'][keep][:,:,0]  # [n, layers+1, D]
+    M=[d['meta'][i] for i in keep];H=d['h_real'][keep][:,:,0]
     y=np.array([[m['margin']<0] for m in M],float);g=np.array([m['image_id'] for m in M])
     S,chosen=V.cv(H,y,g);curve=[V.auroc(S[l,:,0],y[:,0]) for l in range(NL+1)];L=int(np.nanargmax(curve[1:]))+1
     lam=float(np.median([c[L][0] for c in chosen]))
@@ -46,7 +26,6 @@ def fit_direction(a):
     keepg=V.GRID;V.GRID=torch.tensor([lam]);W,b=V.fit((Z/s)[None],torch.from_numpy(y).float().to(V.DEV));V.GRID=keepg
     dvec=(P@(W[0,:,0,0]/s))/sd;u=(dvec/dvec.norm()).float()
     proj=(X@u);sigma=float(proj.std())
-    # transfer check on the 100 test captions (first mentions), never used for fitting
     tk=[i for i,m in enumerate(test['meta']) if m['first_mention']];ty=np.array([test['meta'][i]['margin']<0 for i in tk])
     tp=(test['h_real'][tk][:,L,0].float().to(V.DEV)@u).cpu().numpy()
     gen=torch.Generator().manual_seed(0);r=torch.randn(u.shape[0],generator=gen);r=r/r.norm()
@@ -54,7 +33,6 @@ def fit_direction(a):
          'test_auroc_projection':V.auroc(tp,ty),'h_norm_mean':float(X.norm(dim=-1).mean()),'test_image_overlap':0}
     torch.save({'u':u.cpu(),'random':r,**out},a.output/f'{a.model}-e1-direction.pt');print(json.dumps(out|{'cv_auroc_curve':[round(x,3) for x in curve]},indent=1))
 
-# ------------------------------------------------------------------ interventions
 class Intervene:
     def __init__(self,module,layers):
         self.layers=layers;self.idx={id(l.self_attn):i for i,l in enumerate(layers)};self.module=module
@@ -137,7 +115,6 @@ def run(a):
     except BaseException:
         update(stage='failed',error=traceback.format_exc());raise
 
-# ------------------------------------------------------------------ summary
 def boot(groups,fn,n=1000,seed=0):
     u=np.unique(groups);idx={g:np.where(groups==g)[0] for g in u};rng=np.random.default_rng(seed);v=[]
     for _ in range(n):

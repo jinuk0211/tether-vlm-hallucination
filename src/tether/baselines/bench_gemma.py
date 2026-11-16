@@ -1,15 +1,3 @@
-"""Gemma 4 E4B baselines on the caption sets, through the functions, parameters
-and artifacts of the verified Gemma CHAIR/POPE run (gemma-grains-fp16-v2-20261029-1793246507, whose BF16 profiles come
-from author-clone-rerun-20261027-165446; baselines/worker_gemma.py and baselines/worker_grains_fp16.py):
-  base          adapter.generate, BF16
-  revis         own implementation: artifacts/revis.pt + build_baseline (alpha 1.6, risk quantile 0.8), BF16
-  vti           own implementation: artifacts/vti.pt + build_baseline (alpha 0.5, vision alpha 0.5), BF16
-  rudder_clone  author RUDDER, caption profile (layer 25, alpha 5), BF16
-  grains_clone  author GrAInS + grains-author.pt (layer 27, alpha 10), FP16 weights, FP32 vector as in the v2 worker
-Eager attention for every method, as in that run. Only its GPU/lease/protocol guards are dropped; artifact hashes are
-checked against its protocols. Greedy, seed 42 per image, the set's prompt and max_new_tokens.
-Rows: {output}/{method}-{start}-{end}.jsonl (resumable), same row format as baselines/bench_qwen.py.
-"""
 import argparse,contextlib,hashlib,json,os,time,traceback
 from pathlib import Path
 import torch
@@ -25,7 +13,6 @@ def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 def setup(m,adapter,config):
-    """Return ctx(batch, diag): the method's intervention for one image; diag collects its diagnostics."""
     if m=='base':return lambda batch,diag:contextlib.nullcontext()
     if m in ('revis','vti'):
         p=OLD/'artifacts'/f'{m}.pt';assert sha(p)==json.loads((OLD/'protocol.json').read_text())['retained_artifact_hashes'][m]
@@ -57,8 +44,6 @@ def main(a):
            total=len(refs),done=len(done),resumed_from=len(done))
     try:
         _seed(config);adapter=load_adapter(config['model']);assert adapter.model_type=='gemma4' and len(adapter.layers)==42
-        # offline loads leave _commit_hash unset; check the snapshot on disk is the run's revision, then record it, as the
-        # v2 GrAInS worker and baselines/bench_qwen.py do (build_baseline's artifact check compares it)
         rev=config['model']['revision'];assert getattr(adapter.model.config,'_commit_hash',None) in (None,rev)
         from huggingface_hub import try_to_load_from_cache
         cached=try_to_load_from_cache(config['model']['checkpoint'],'config.json',revision=rev)

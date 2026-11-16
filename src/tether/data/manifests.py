@@ -1,24 +1,19 @@
-"""Convert local datasets into manifests and split them by image. Nothing is downloaded."""
-
-from __future__ import annotations
-
 import json
 import os
 import random
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Mapping
 from urllib.parse import urlsplit
 
-Record = dict[str, Any]
 SPLITS = {"discovery", "fit", "tune", "test"}
 TASKS = {"pope", "caption", "causal", "mme", "mmhal"}
 CAPTION_PROMPT = "Please describe this image in detail."
 YES_NO_SUFFIX = " Answer yes or no."
 
 
-def _read_json_records(path: str | Path) -> list[Record]:
+def _read_json_records(path):
     text = Path(path).read_text(encoding="utf-8-sig")
     if not text.strip():
         return []
@@ -31,8 +26,7 @@ def _read_json_records(path: str | Path) -> list[Record]:
     return records
 
 
-def read_manifest(path: str | Path) -> list[Record]:
-    """Read JSON/JSONL; resolve relative image paths against the manifest folder."""
+def read_manifest(path):
     path = Path(path).resolve()
     records = _read_json_records(path)
     for record in records:
@@ -46,8 +40,7 @@ def read_manifest(path: str | Path) -> list[Record]:
     return records
 
 
-def write_manifest(records: Sequence[Mapping[str, Any]], path: str | Path) -> None:
-    """Write a validated JSONL manifest, including absolute local image paths."""
+def write_manifest(records, path):
     validate_disjoint(records)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,17 +49,8 @@ def write_manifest(records: Sequence[Mapping[str, Any]], path: str | Path) -> No
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
-def validate_disjoint(
-    manifests: Iterable[Mapping[str, Any] | str | Path | Sequence[Mapping[str, Any]]],
-    *,
-    check_files: bool = True,
-) -> dict[str, int]:
-    """Reject duplicate IDs and image/original-image leakage across named splits.
-
-    Reusing an image for different questions or tasks in the SAME split is valid.
-    Original and edited images MUST use the same group_id.
-    """
-    records: list[Mapping[str, Any]] = []
+def validate_disjoint(manifests, *, check_files=True):
+    records = []
     for item in manifests:
         if isinstance(item, Mapping):
             records.append(item)
@@ -74,10 +58,10 @@ def validate_disjoint(
             records.extend(read_manifest(item))
         else:
             records.extend(item)
-    seen_ids: set[str] = set()
-    groups: dict[str, str] = {}
-    files: dict[str, tuple[str, str]] = {}
-    split_counts: defaultdict[str, int] = defaultdict(int)
+    seen_ids = set()
+    groups = {}
+    files = {}
+    split_counts = defaultdict(int)
     for record in records:
         missing = {"id", "group_id", "image", "prompt", "task", "split"} - record.keys()
         if missing:
@@ -111,8 +95,7 @@ def validate_disjoint(
     return dict(split_counts)
 
 
-def image_group_id(image_name: str) -> str:
-    """Map COCO originals and Causal-HalBench _NNN edits to the same image ID."""
+def image_group_id(image_name):
     stem = Path(image_name).stem
     match = re.search(r"(?:^|_)0*(\d{1,12})(?:_\d{3})?$", stem)
     if stem.startswith("COCO_") and match:
@@ -123,7 +106,7 @@ def image_group_id(image_name: str) -> str:
     return f"image:{base}"
 
 
-def _local_image(root: str | Path, name: str) -> str:
+def _local_image(root, name):
     root = Path(root).resolve()
     path = (root / name).resolve()
     if not path.is_relative_to(root):
@@ -133,21 +116,14 @@ def _local_image(root: str | Path, name: str) -> str:
     return str(path)
 
 
-def _yes_no_label(value: Any) -> str:
+def _yes_no_label(value):
     label = str(value).strip().lower()
     if label not in {"yes", "no"}:
         raise ValueError(f"Ground-truth label must be yes/no, got {value!r}")
     return label
 
 
-def prepare_pope(
-    input_path: str | Path,
-    image_root: str | Path,
-    split: str = "test",
-    *,
-    subset: str | None = None,
-) -> list[Record]:
-    """Convert official POPE question_id/image/text/label JSONL or JSON."""
+def prepare_pope(input_path, image_root, split="test", *, subset=None):
     subset = subset or Path(input_path).stem
     records = [
         {
@@ -166,10 +142,7 @@ def prepare_pope(
     return records
 
 
-def prepare_causal(
-    input_path: str | Path, image_root: str | Path, split: str = "test"
-) -> list[Record]:
-    """Convert official Causal-HalBench qa.json (question, answer, image_name)."""
+def prepare_causal(input_path, image_root, split="test"):
     records = []
     for row in _read_json_records(input_path):
         for key in ("image_name", "question", "answer", "id", "tag", "type"):
@@ -191,8 +164,7 @@ def prepare_causal(
     return records
 
 
-def prepare_mme(root: str | Path, split: str = "test") -> list[Record]:
-    """Read official category/{images,questions_answers_YN} layout or flat categories."""
+def prepare_mme(root, split="test"):
     root = Path(root)
     records = []
     for category in sorted(p for p in root.iterdir() if p.is_dir()):
@@ -231,10 +203,7 @@ def prepare_mme(root: str | Path, split: str = "test") -> list[Record]:
     return records
 
 
-def prepare_mmhal(
-    input_path: str | Path, image_root: str | Path, split: str = "test"
-) -> list[Record]:
-    """Convert the ordered official MMHal-Bench response_template.json and local images."""
+def prepare_mmhal(input_path, image_root, split="test"):
     records = []
     for index, row in enumerate(_read_json_records(input_path)):
         required = {"image_id", "image_src", "image_content", "question",
@@ -264,8 +233,7 @@ def prepare_mmhal(
     return records
 
 
-def _segmentation_mask(segmentation: Any, width: int, height: int):
-    """Polygon masks; RLE needs pycocotools (boxes are never used instead)."""
+def _segmentation_mask(segmentation, width, height):
     import numpy as np
     from PIL import Image, ImageDraw
 
@@ -294,8 +262,7 @@ def _segmentation_mask(segmentation: Any, width: int, height: int):
     raise ValueError("Missing/unsupported segmentation: bounding boxes are not masks")
 
 
-def _translated_control(target, all_objects, rng: random.Random, attempts: int = 512):
-    """Find an equal-shape/area translated mask that touches no annotated object."""
+def _translated_control(target, all_objects, rng, attempts=512):
     import numpy as np
 
     ys, xs = np.nonzero(target)
@@ -315,23 +282,17 @@ def _translated_control(target, all_objects, rng: random.Random, attempts: int =
 
 
 def prepare_coco(
-    annotation_path: str | Path,
-    image_root: str | Path,
-    output_dir: str | Path,
+    annotation_path,
+    image_root,
+    output_dir,
     *,
-    seed: int = 42,
-    discovery_count: int = 200,
-    fit_count: int = 200,
-    tune_count: int = 200,
-    test_count: int = 0,
-    exclude_group_ids: Iterable[str] = (),
-) -> list[Record]:
-    """Build disjoint COCO groups, diagnostic occlusions, and balanced yes/no pairs.
-
-    Counts refer to images, not questions. Discovery creates one positive question
-    per image with two diagnostic occlusions; fit/tune create one positive and one
-    annotation-absent question plus a caption prompt; test creates captions only.
-    """
+    seed=42,
+    discovery_count=200,
+    fit_count=200,
+    tune_count=200,
+    test_count=0,
+    exclude_group_ids=(),
+):
     import numpy as np
     from PIL import Image
 
@@ -342,7 +303,7 @@ def prepare_coco(
         raise ValueError("Image counts must be nonnegative")
     annotations = json.loads(Path(annotation_path).read_text(encoding="utf-8"))
     categories = {row["id"]: row["name"] for row in annotations["categories"]}
-    by_image: defaultdict[int, list[Record]] = defaultdict(list)
+    by_image = defaultdict(list)
     for row in annotations["annotations"]:
         by_image[row["image_id"]].append(row)
     excluded = set(exclude_group_ids)
@@ -354,7 +315,7 @@ def prepare_coco(
     rng.shuffle(images)
     candidates = iter(images)
     output_dir = Path(output_dir).resolve()
-    records: list[Record] = []
+    records = []
     for split, count in counts.items():
         accepted = 0
         while accepted < count:
@@ -384,7 +345,7 @@ def prepare_coco(
                 with Image.open(image_path) as original:
                     image = original.convert("RGB")
                 width, height = image.size
-                masks: dict[int, Any] = {}
+                masks = {}
                 for obj in objects:
                     mask = _segmentation_mask(obj.get("segmentation"), width, height)
                     category = obj["category_id"]

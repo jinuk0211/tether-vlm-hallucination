@@ -1,22 +1,3 @@
-"""Gemma 4 E4B CHAIR ablation of the paper's RBD row, same design as experiments/chair_ablation.py (Qwen2.5-VL).
-Full RBD = s24a1bl1p05: steering alpha 1 at layer 24 + belief lam 1 + penalty 0.5, decay schedules, measured r(t), raw evidence, eager, old V_obj
-(runs/gchair_test500_all; CHAIR_s 26.2 / CHAIR_i 5.5 / recall 63.6). Its setting was picked on test rows 0-60 (gchair3.sh), the variants were not.
-Variants (one change each, everything else as the full row):
-  abl_nosteer   alpha 0              (belief + penalty)         rows 0-59 reused from runs/gchair_t60/bl1p05
-  abl_nobelief  lam 0                (steering + penalty)
-  abl_nopen     pen 0                (steering + belief)
-  abl_steer     steering only        (alpha 1)
-  abl_belief    belief only          (lam 1)
-  abl_pen       penalty only         (pen 0.5)
-  abl_const     schedules constant   (--bsched const --ssched const: w(t) = s(t) = 1 instead of 1 - r(t))
-Rows are reused only where the stored setting is identical. vdd Base and the full row come from runs/gchair_test500_all, the table Base from
-runs/gchair_test500_tbl.
-  check      run when the chain is scheduled: every reused file is complete and has the setting it should have
-  queue      queues/gabl_chair.txt (units of 50; reused prefixes skipped), queues/gabl_repro.txt (full setting, rows 0-5)
-  repro      rows 0-5 decoded now (decoding/vdd_vobj.py) vs the stored full row (decoding/vdd.py); exit 1 if none is identical
-  join       runs/gabl_chair500_all/<tag>-0-500.jsonl (base = vdd Base, rbd_full, variants) and
-             runs/gabl_chair500_vsfull/ (base = the full RBD row, so the bootstrap gives each variant's change vs full; vddbase, tblbase)
-  table DIR  the paper's ablation table in LaTeX from DIR/score.json (a *_vsfull directory)"""
 import json,os,sys
 from pathlib import Path
 O=Path(os.environ.get('GABL_L','/home/project-b/LJW'))/'vlm-grounding-steering/outputs/rbd2-20261102'

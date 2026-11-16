@@ -1,7 +1,4 @@
 #!/bin/bash
-# Two images through every method's real code path on the HAT set, before the long queues reach them: REVIS, RUDDER, GrAInS, VTI on both
-# models, Gemma Base and Gemma RBD with the colour-fixed V_obj. GPU 3, one at a time, memory-gated, so it takes turns with the parser.
-# Rows go to runs/hat385_smoke_MODEL and are not scored. Log: logs/hat_smoke.log, HAT_SMOKE_DONE.
 L=${HAT_L:-/home/project-b/LJW}; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R; G=${SMOKE_GPU:-3}; LOG=$O/logs/hat_smoke.log; D=$O/sets/hat385.jsonl
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 export HF_HOME=$L/.cache/huggingface HF_HUB_CACHE=$L/.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 \

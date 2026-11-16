@@ -1,10 +1,4 @@
 #!/bin/bash
-# Judges the five Gemma THRONE baselines (flan-t5 base+large) once each has its 1000 rows: the judging step of gemma_chain.sh,
-# which was stopped before it got there. The dev pick, ours on the test 1000 and the final table with ours are in
-# gemma_ours_fix.sh, which waits for these judge files.
-# A tag is judged on GPU 5 or 3 with no judge job of this script and >= 12 GB free; a failed judge job is retried twice.
-# Ends with a 2-judge table over every judged tag (ours too if gemma_ours_fix.sh has judged it). Log: logs/gemma.log,
-# GEMMA_DONE (gemma_ours_fix.sh also stops waiting on it).
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gemma.log; TD=$O/runs/gemma_throne1000

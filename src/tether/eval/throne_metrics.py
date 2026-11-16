@@ -1,8 +1,3 @@
-"""THRONE scoring for the colour-fixed-V_obj run (vdd4): official micro (_ALL) and class-wise (_CLS) metrics on existing
-2-judge files (flan-t5 base+large, threshold 6), orange FP count, F0.5_ALL without class orange, paired image bootstrap
-(2000 resamples, seed 0) vs the first tag. CPU only.
-usage: python -m tether.eval.throne_metrics SET TAG=COMBINED_DIR [TAG=COMBINED_DIR ...]      (first = reference; env BENCH, RBD2_SETS)
-SET = a file sets/SET.jsonl (rows with metadata.image_id)."""
 import glob,sys,contextlib,io,os
 from pathlib import Path
 import numpy as np

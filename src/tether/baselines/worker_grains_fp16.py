@@ -1,4 +1,3 @@
-"""Original GrAInS functions, new FP16 inference on GPU2 or GPU3."""
 import argparse
 import contextlib
 import hashlib
@@ -70,7 +69,6 @@ def main(output,worker,preflight):
         if preflight:
             record=read(output/'data/fit50.jsonl')[0]
             batch=adapter.prepare(record['image'],'Please describe this image in detail.')
-            # Check decoder activations and logits before starting the benchmarks.
             seen={'calls':0,'dtypes':set()}
             def finite_hook(module,args,output_value):
                 value=output_value[0] if isinstance(output_value,tuple) else output_value

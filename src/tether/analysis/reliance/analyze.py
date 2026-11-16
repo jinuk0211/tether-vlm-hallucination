@@ -1,9 +1,3 @@
-"""Summarize analysis/reliance/collect.py outputs.
-
-H1  image reliance falls as the caption gets longer (all caption tokens / control tokens by position bin)
-H2  hallucinated object tokens rely less on the image than correct object tokens (overall and within position bins)
-H3  the same object relies more on the image when asked as a question than when written in the caption
-"""
 import glob,json,sys
 from pathlib import Path
 import numpy as np
@@ -13,7 +7,6 @@ def auroc(pos,neg):
     pos=np.asarray(pos);neg=np.asarray(neg)
     if len(pos)==0 or len(neg)==0:return float('nan')
     allv=np.concatenate([pos,neg]);r=allv.argsort().argsort()+1.0
-    # average ranks for ties
     vals,inv,cnt=np.unique(allv,return_inverse=True,return_counts=True);csum=np.cumsum(cnt);avg=csum-(cnt-1)/2;r=avg[inv]
     return float((r[:len(pos)].sum()-len(pos)*(len(pos)+1)/2)/(len(pos)*len(neg)))
 
@@ -31,7 +24,6 @@ def binof(t):
 def main(path,model):
     recs=[r for f in sorted(glob.glob(str(path/f'{model}-*.pt'))) for r in torch.load(f,map_location='cpu',weights_only=False)]
     out={'model':model,'captions':len(recs)}
-    # H1: all caption tokens
     by={}
     for r in recs:
         att=r['attn_img'].float();vcd=(r['logp_real'].float()-r['logp_gray'].float())
@@ -43,7 +35,6 @@ def main(path,model):
             if j['kind']=='control':by.setdefault(binof(int(t)),{'attn_early':[],'attn_late':[],'vcd':[],'jac':[]})['jac'].append(j['img_share'][0])
     out['H1_by_position']={k:{m:(float(np.mean(v)) if v else None) for m,v in d.items()}|{'n_tokens':len(d['vcd']),'n_jac':len(d['jac'])}
                            for k,d in sorted(by.items(),key=lambda x:int(x[0].split('-')[0]) if x[0]!='tail' else 9999)}
-    # H2: object tokens
     obj={'hallucinated':[],'correct':[]}
     for r in recs:
         att=r['attn_img'].float();L=att.shape[0];late=att[L//2:].mean(0);vcd=(r['logp_real'].float()-r['logp_gray'].float())
@@ -54,14 +45,12 @@ def main(path,model):
     for m in ('jac','vcd','attn_late','logp'):
         hv=[x[m] for x in obj['hallucinated']];cv=[x[m] for x in obj['correct']]
         h2[m]={'hallucinated_mean':float(np.mean(hv)),'correct_mean':float(np.mean(cv)),'diff_CI95':boot_diff(hv,cv),'auroc_correct_gt_hallucinated':auroc(cv,hv)}
-        # within position bins (weighted mean of per-bin differences)
         diffs=[];w=[]
         for b in set(binof(x['t']) for x in obj['hallucinated']):
             hb=[x[m] for x in obj['hallucinated'] if binof(x['t'])==b];cb=[x[m] for x in obj['correct'] if binof(x['t'])==b]
             if len(hb)>=5 and len(cb)>=5:diffs.append(np.mean(hb)-np.mean(cb));w.append(len(hb))
         h2[m]['position_matched_diff']=float(np.average(diffs,weights=w)) if diffs else None
     out['H2_object_tokens']={'n':{k:len(v) for k,v in obj.items()},**h2}
-    # H3: question vs caption for the same (caption, object)
     pairs={'hallucinated':[],'correct':[]}
     for r in recs:
         first={}

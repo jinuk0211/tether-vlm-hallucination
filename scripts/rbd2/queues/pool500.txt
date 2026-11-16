@@ -1,4 +1,3 @@
-# 500 images, Base + CHAIR s16a2bl1p05 / THRONE s16a1bl2p1 / AMBER mainMed; rows 0-149 reused, 150-499 here.
 throne_test500 throne_test500 s16a1bl2p1 150 200 --alpha 1 --layer 16 --lam 2 --pen 1
 throne_test500 throne_test500 base 150 200
 chair_test500 chair_test500 s16a2bl1p05 150 200 --alpha 2 --layer 16 --lam 1 --pen 0.5

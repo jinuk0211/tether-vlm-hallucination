@@ -1,4 +1,3 @@
-"""Native Qwen loader for five profiles: BF16 methods and FP16 GrAInS."""
 import hashlib
 import json
 import os

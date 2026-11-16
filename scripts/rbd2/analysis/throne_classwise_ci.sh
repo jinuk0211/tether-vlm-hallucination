@@ -23,7 +23,7 @@ def mats(files,thr):
                 P[i,n2i[p]]+=1
                 if p in gt[k]:C[i,n2i[p]]+=1
     return P,C,G
-def cls(W,P,C,G):   # W: (b,1000) image weights -> official classwise P, R, F1, F0.5 (nanmean over classes)
+def cls(W,P,C,G):
     p_,c_,g_=W@P,W@C,W@G
     with np.errstate(invalid='ignore',divide='ignore'):
         pr=c_/p_;rc=c_/g_;f1=2*pr*rc/(pr+rc);f05=1.25*pr*rc/(0.25*pr+rc)

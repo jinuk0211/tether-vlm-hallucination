@@ -1,13 +1,4 @@
 #!/bin/bash
-# RBD v2.1 THRONE (11-04): colour-fixed V_obj (orange etc. removed; experiments/throne_cf_setup.py). The setting is chosen on the first
-# 200 test images (throne_full1000 rows 0-199) and only then run on the other 800 (as stated in the paper);
-# Qwen first, then Gemma (layer 24). Starts after the AMBER vdd3 chain. GPUs 3 and 4:
-# workers 3 x1, 4 x2, memory-gated; judges (flan-t5 base+large, threshold 6) on 3 or 4 with room.
-# Selection rows on the 200: bench Base and the old-V_obj config (existing judge files of the 1000-image runs), vdd Base
-# (Qwen only, existing), and the 4 colour-fixed candidates (new). Guard + pick: experiments/throne_cf.py pick (a candidate must beat
-# bench Base AND the old config on F0.5_CLS, else that backbone stops there and the next stage goes on).
-# Test: the pick on rows 200-999, joined with its rows 0-199, judged on the 1000, scored vs bench Base (ALL, CLS, CIs,
-# F0.5_ALL without orange), with the old config as an extra row. Log: logs/vdd4.log, VDD4_DONE / VDD4_STOPPED.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/vdd4.log

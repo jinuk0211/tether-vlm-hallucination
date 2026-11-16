@@ -1,6 +1,4 @@
 #!/bin/bash
-# Same join + scoring as the tail of pb_amber_bl.sh, for running by hand once all five methods are decoded on the
-# 1004 images (pb_amber_bl.sh itself still waits on its GPU 5 workers).
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R; LOG=$O/logs/amber_full_score.log
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 .venv/bin/python - >> $LOG 2>&1 <<'PY'

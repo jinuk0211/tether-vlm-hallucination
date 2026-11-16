@@ -1,11 +1,4 @@
 #!/bin/bash
-# Our method (s16a1bl2p1) on the first 1000 full-THRONE images, judged with
-# flan-t5-base and -large only. Rows 0-499 are the throne_test500 run (same images); rows 500-999 are decoded here by two
-# pool workers on GPU 5. pb_run500c.sh (pid $1) stays stopped until this script ends, because pb_amber_bl.sh starts its
-# two GPU 5 AMBER workers when that pid exits; killing it last hands GPU 5 over.
-# Then join -> judges base and large in parallel on GPU 5 (separate output files) -> eval/throne_partial.py (2 judges,
-# threshold 6) for all methods on the 1000 images and on the first 500. Log: logs/full1000_ours.log, FULL1000_OURS_DONE.
-# usage: pb_full1000_ours.sh STOPPED_RUN500C_PID
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/full1000_ours.log; Q=$O/queues/full1000_ours.txt; TD=$O/runs/throne_full1000

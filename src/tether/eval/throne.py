@@ -1,15 +1,8 @@
-"""THRONE (amazon-science/THRONE, commit 45badbb7) on throne_test60, run with /workspace/venv-throne.
-Steps 2 and 3 of scripts/one-click.sh, unchanged: abstractive QA with google/flan-t5-{base,large,xl} (pinned revisions,
-batch 32, M=3 question formats), then throne_score_aqa.py (micro and classwise, voting thresholds 5 8 9). Our captions
-replace step 1 (prompt "Describe this image in detail.", throne_generate.GENERATION_PROMPT).
-Headline: micro (image-level) P, R, F1, F0.5 at threshold 9 (the scorer's default, unanimous 3 judges x 3 formats);
-paired bootstrap vs base (2000, seed 0) on the same per-image sets the official functions produce.
-usage: python -m tether.eval.throne GPU RUNDIR"""
 import glob,json,os,shutil,subprocess,sys
 from pathlib import Path
 import numpy as np
 
-BENCH=Path(os.environ.get('BENCH','/workspace/bench'))  # project-b: /home/project-b/LJW/bench
+BENCH=Path(os.environ.get('BENCH','/workspace/bench'))
 T=BENCH/'THRONE/throne';COCO=str(BENCH/'coco2017/annotations/instances_val2017.json')
 JUDGES=[str(BENCH/f'models/flan-t5-{s}') for s in ('base','large','xl')]
 SETS=Path(os.environ.get('RBD2_SETS','/workspace/sets'))
@@ -34,7 +27,7 @@ def per_image(d,thr=9):
     cats=sorted(ds.cats.values(),key=lambda x:x['id']);idx={i:c['name'] for i,c in enumerate(cats)};cid={c['id']:c['name'] for c in cats}
     pred=S.prepare_aqa_preds(glob.glob(str(d/'combined')+'/*.json'),idx);col,dis=S.majority_vote_collapsing(pred,voting_threshold=thr)
     P={};R={}
-    for k in col:   # micro_avergaing_metrics, per image
+    for k in col:
         g=set(cid[a['category_id']] for a in ds.loadAnns(ds.getAnnIds(imgIds=[k])));dq=set(dis[k])
         gp={x for x in g if x not in dq};pp={x for x in col[k] if x not in dq}
         P[k],R[k]=(len(gp&pp)/len(pp),len(gp&pp)/len(gp)) if pp and gp else (0.0,0.0)

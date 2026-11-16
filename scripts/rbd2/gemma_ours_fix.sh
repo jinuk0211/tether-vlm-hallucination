@@ -1,12 +1,4 @@
 #!/bin/bash
-# Our method back into the Gemma THRONE run. gemma_chain.sh declared DEV_FAILED at 20:42 because the dev unit bl2p1 hit
-# OOM twice when the Gemma CHAIR workers collided with it (not a real failure; gemma_pool.sh no longer counts
-# OOM since 20:44), so it went on with the baselines only. This script does the steps gemma_chain.sh skipped, unchanged:
-# wait for the five dev tags (60 rows each) -> dev judges flan-t5 base + large -> experiments/gemma_throne_pick.py (same rule; writes
-# queues/gemma_ours.txt, which the gemma_pool.sh workers take before the baseline queue) -> ours on the test 1000 ->
-# experiments/gemma_throne_join.py -> judges -> once every baseline tag is judged too, eval/throne_partial.py over all tags (2 judges,
-# threshold 6, paired bootstrap vs Base). Judges run on a GPU with >= 12 GB free (4, 2, 5, 3 in that order).
-# Log: logs/gemma_ours_fix.log (the final table is also appended to logs/gemma.log), GEMMA_OURS_DONE.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 LOG=$O/logs/gemma_ours_fix.log; DEV=$O/runs/gemma_throne_dev60; TD=$O/runs/gemma_throne1000

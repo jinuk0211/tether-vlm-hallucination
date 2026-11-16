@@ -1,4 +1,3 @@
-# candidates on test rows 0-60 (no dev)
 chair_test500 gchair_test500 s20a2bl1p05 0 30 --alpha 2 --layer 20 --lam 1 --pen 0.5
 chair_test500 gchair_test500 s28a2bl1p05 0 30 --alpha 2 --layer 28 --lam 1 --pen 0.5
 chair_test500 gchair_test500 bl1p05 0 30 --lam 1 --pen 0.5

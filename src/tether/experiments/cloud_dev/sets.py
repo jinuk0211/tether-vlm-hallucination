@@ -1,10 +1,3 @@
-"""Data for the 60-image round (run after data/probe_set.py, before data/chair_dev.py):
-  images   download the first 100 images of the seeded COCO train2014 probe list (the CHAIR dev split), decode-checked
-  manifests (after data/chair_dev.py)  /workspace/sets/{chair_dev60, chair_test60, amber_dev60, amber_test60}.jsonl
-           chair_dev60  = first 60 of data/chair-dev-train2014-100/chair.jsonl
-           chair_test60 = first 60 of the CHAIR test manifest used so far; amber_test60 = AMBER 1-60 (same rows)
-           amber_dev60  = AMBER 101-160, same row format (selection only; never reported as a test number)
-usage: python -m tether.experiments.cloud_dev.sets images | manifests"""
 import concurrent.futures as cf,hashlib,json,sys,time,urllib.request
 from pathlib import Path
 from PIL import Image

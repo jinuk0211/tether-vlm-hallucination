@@ -1,9 +1,3 @@
-"""VTI (author code, alpha 0.9 visual and textual) with the whitespace-normalised textual direction of baselines/vti_fix.py
-(outputs/rbd2-20261102/vti_fix/vti-author-ws.pt) on a caption set. Same model setup and row format as
-baselines/bench_qwen.py vti_author (FP16 weights, eager attention with FP32 scores, greedy, seed 42 per image); rows go to
-OUTPUT/TAG-START-END.jsonl and are resumed. --av/--at scale the visual/textual direction (author default 0.9; 0 = not
-installed), for the CHAIR alpha choice on chair_dev60 (vti_chair.sh).
-usage: python -m tether.baselines.vti_ws --set SET.jsonl --output DIR --start 0 --end 1000 [--av 0.9 --at 0.9 --tag vti_author_ws]"""
 import argparse,hashlib,json,os,time,traceback
 from pathlib import Path
 import torch

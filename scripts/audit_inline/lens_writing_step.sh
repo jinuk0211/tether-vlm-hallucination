@@ -1,8 +1,4 @@
 #!/bin/bash
-# App. A.8 "Writing step": written word in the lens top-5 at the writing step, position-matched gaps (Qwen L26/L27, Gemma L34/L38)
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_writing_step.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R
 date '+%m-%d %T'; nvidia-smi --query-gpu=index,memory.free,utilization.gpu --format=csv,noheader | sed -n 3,6p; nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader | while IFS=, read u p m; do i=$(nvidia-smi --query-gpu=index,uuid --format=csv,noheader | grep "$u" | cut -d, -f1); echo "gpu$i $m $(ps -o args= -p $p | cut -c1-70)"; done | grep -E "^gpu[2345] "; ps -eo args | grep -E "scripts/rbd2/.*\.sh" | grep -v grep | cut -c1-70 | sort | uniq -c
 HF_HOME=$R/../.cache/huggingface HF_HUB_OFFLINE=1 PYTHONPATH=src OMP_NUM_THREADS=6 CUDA_VISIBLE_DEVICES= .venv/bin/python - <<'P'
@@ -33,7 +29,6 @@ for m,ck,rev in (('qwen','Qwen/Qwen2.5-VL-7B-Instruct','cc594898137f460bfe9f0759
         v=(rk[:,l]<5).astype(float);gap=strat(v,np.arange(len(v)));bs=[strat(v,np.concatenate([idx[k] for k in rng.choice(u,len(u))])) for _ in range(300)]
         pos=' '.join(f'{100*v[hl&(tt>=a)&(tt<b)].mean():.0f}/{100*v[(~hl)&(tt>=a)&(tt<b)].mean():.0f}' for a,b in zip(B,B[1:]))
         print(f' L{l:2d} | {100*(rk[hl,l]==0).mean():5.1f} {100*(rk[~hl,l]==0).mean():5.1f} | {100*v[hl].mean():5.1f} {100*v[~hl].mean():5.1f} | {100*gap:+5.1f} [{100*np.nanquantile(bs,.025):+.1f},{100*np.nanquantile(bs,.975):+.1f}] | {pos}')
-    # which object words surface as lens top-1 at each layer, over all caption positions, counting only tokens that were NOT the one written there
     cnt=np.zeros((NL+1,4));allc=np.zeros((NL+1,4));cl=['correct','hallucinated','missed','absent'];tok=0
     capt={}
     for r in T:

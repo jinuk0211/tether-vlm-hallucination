@@ -1,8 +1,4 @@
 #!/bin/bash
-# Table A.5 upper rows (Qwen): image-token lens AUROC per layer, within-object AUROC, Spearman with the question margin
-# Run on the server on 2026-11-05; output in outputs/audit-recheck-20261105/inline/lens_image_layers_qwen.out.txt. Reads outputs/logit-lens-20261104/*.pt and the other
-# saved audit records (activation dumps are not in this repo). The python part runs on CPU; the lines before it check the GPU
-# and start or wait for a lens job.
 R=/home/project-b/LJW/vlm-grounding-steering; cd $R; O=$R/outputs/logit-lens-20261104
 nvidia-smi --id=5 --query-gpu=memory.free,utilization.gpu --format=csv,noheader
 F=$(nvidia-smi --id=5 --query-gpu=memory.free --format=csv,noheader,nounits)
@@ -30,7 +26,6 @@ for k in ('top1','kl'):
     b=g['by_position'][k]
     for l in (14,21,31,36,40,42):print(' ',k,'L',l,[None if x is None else round(x,3) for x in b[l]])
 mt=g['mentions'];print(' top1 hall',[round(x,2) for x in mt['top1_rate_by_layer']['hallucinated']][28:],'corr',[round(x,2) for x in mt['top1_rate_by_layer']['correct']][28:]);print(' logp hall',[round(x,2) for x in mt['logp_by_layer']['hallucinated']][30:],'corr',[round(x,2) for x in mt['logp_by_layer']['correct']][30:])
-# extra, from the saved image-lens records (no model): is a hallucinated object seen in the image tokens more than other absent objects?
 d=torch.load(f'{O}/qwen-image-0-500.pt',weights_only=False);nodes=d['nodes'];NL=d['n_layers']
 def au(s,y):
     s=np.asarray(s,float);y=np.asarray(y,bool);p=y.sum();n=len(y)-p;_,i,c=np.unique(s,return_inverse=True,return_counts=True);r=(np.cumsum(c)-(c-1)/2)[i];return float((r[y].sum()-p*(p+1)/2)/(p*n))
@@ -44,7 +39,6 @@ S=np.stack(S);cls=np.array(cls);nd=np.array(nd);print({c:int((cls==c).sum()) for
 for l in (14,21,24,26,27,28):
     x=S[:,l];print(f' L{l} median conf',{c:float(f'{np.median(x[cls==c]):.2e}') for c in ('correct','missed','hall','absent')},
       'hall>absent %.3f correct>missed %.3f missed>hall %.3f correct>hall %.3f'%(au(x[(cls=='hall')|(cls=='absent')],cls[(cls=='hall')|(cls=='absent')]=='hall'),au(x[(cls=='correct')|(cls=='missed')],cls[(cls=='correct')|(cls=='missed')]=='correct'),au(x[(cls=='missed')|(cls=='hall')],cls[(cls=='missed')|(cls=='hall')]=='missed'),au(x[(cls=='correct')|(cls=='hall')],cls[(cls=='correct')|(cls=='hall')]=='correct')))
-# same objects only: hallucinated vs absent within object
 for l in (21,28):
     a=[au(S[((cls=='hall')|(cls=='absent'))&(nd==n),l],cls[((cls=='hall')|(cls=='absent'))&(nd==n)]=='hall') for n in np.unique(nd[cls=='hall']) if ((cls=='hall')&(nd==n)).sum()>=5]
     print(f' L{l} hall vs absent within object: {np.mean(a):.3f} ({len(a)} objects)')

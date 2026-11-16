@@ -1,12 +1,4 @@
 #!/bin/bash
-# VTI on CHAIR 500 for Qwen2.5-VL-7B, at a setting picked on dev. VTI = author code with the
-# whitespace-normalised textual direction (baselines/vti_fix.py), FP16 eager as baselines.bench_qwen vti_author.
-# 1. alpha_visual x alpha_textual grid on chair_dev60 (COCO train2014, disjoint from the 500 test images).
-# 2. Rule, fixed before any dev result: among settings with dev recall >= Base dev recall - 2, lowest CHAIR_s, ties by
-#    CHAIR_i; if none qualifies, the author default 0.9/0.9.
-# 3. That one setting once on the 500 CHAIR test images, scored with eval/sets.py (unmodified CHAIR scorer, paired
-#    bootstrap) against the table's Base (fiveprofiles bf16-three-complete: CHAIR_s 25.6, CHAIR_i 8.75, recall 58.9).
-# GPU 2 only (A5000, one FP16 model at a time). Log: logs/vti_chair.log
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 Q=$R/outputs/qwen25-vl7b-fiveprofiles-20261029-1793247386

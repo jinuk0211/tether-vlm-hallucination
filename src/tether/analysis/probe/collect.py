@@ -1,17 +1,3 @@
-"""E0': when the caption writes an object, does the hidden state already say "asked, I would deny it"?
-
-Teacher forcing on Base CHAIR captions (Qwen's include repetition_penalty 1.05, as generated),
-once with the real image and once with a gray 448x448 image under the same caption.
-For every object mention (CHAIR node, mapped to its first caption token as in
-decoding.selfverify) store, at every layer (0 = embedding output, l = output of decoder layer l):
-  pos 0  the query that predicts the mention's first token (where decoding could intervene)
-  pos 1  the mention's first token itself
-plus log p of that token (real / gray), mention order among distinct objects, caption position.
-Labels come from caption-selfcheck-20261030: kind (hallucinated / correct) and margin
-(Yes-No when the same model is asked "Is there a {node} in the image?").
-Default subset: --n captions drawn (seed 0) from those with >= 1 hallucinated object.
-Writes only under --output.
-"""
 import argparse,json,os,random,sys,time,traceback
 from pathlib import Path
 import torch
@@ -67,7 +53,7 @@ def main(a):
                 st={}
                 for name,b in (('real',br),('gray',bg)):
                     res.on=True;o=m(**b,use_cache=False,return_dict=True);res.on=False
-                    st[name]=torch.stack([h[pos] for h in res.h],1).half().cpu()  # [mentions, layers+1, 2, D]
+                    st[name]=torch.stack([h[pos] for h in res.h],1).half().cpu()
                     st[name+'_logp']=o.logits[0,pos[:,0]].float().log_softmax(-1).gather(-1,tg[:,None])[:,0].cpu()
                     del o;res.h=[None]*(NL+1)
             HR.append(st['real']);HG.append(st['gray'])

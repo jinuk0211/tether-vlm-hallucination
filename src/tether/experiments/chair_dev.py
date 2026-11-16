@@ -1,12 +1,3 @@
-"""CHAIR dev (the 100 COCO train2014 images of data/chair-dev-train2014-100) for the right half of tab:hallucination_all_models, in place of AMBER.
-Base, RUDDER, GrAInS, VTI and RBD on Qwen2.5, Qwen3 and Gemma. RBD at the table's setting of
-the backbone, no selection here. REVIS added 11-08, the implementation of each backbone's CHAIR row: own (baselines/local.py) on Qwen2.5 (sdpa) and Gemma,
-the official code on Qwen3 (baselines/bench_qwen3_official.py revis_official). Both Bases, as in the table: baselines against the bench Base, RBD and Qwen2.5's VTI-ws (baselines/vti_ws.py)
-against the vdd Base (11-08 fix: the bench-path VTI of Qwen3 and Gemma had been tested against the vdd Base).
-Existing rows are reused where the setting is the same: rows 0-59 of Qwen2.5 vdd Base and VTI, of Gemma vdd Base, and rows 0-29 of Gemma RBD.
-  prep            sets/chair_dev100.jsonl, reused rows, queues/chair_dev100.txt (hat_pool.sh lines, runs/chair_dev100_MODEL)
-  score MODEL     runs/chair_dev100_MODEL_all (base = bench Base) and _vdd (base = vdd Base) through eval/sets.py, then the table cells in logs/cdev_table_MODEL.tex
-  scoretest       the scorer path on the stored chair_dev60 rows: must give their known numbers (Base 38.3 / 7.6 / 66.8, main 36.7 / 7.5 / 68.4)"""
 import json,os,shutil,sys
 from pathlib import Path
 L=Path(os.environ.get('HAT_L','/home/project-b/LJW'));R=L/'vlm-grounding-steering';O=R/'outputs/rbd2-20261102';RUN='chair_dev100';N=100
@@ -17,7 +8,6 @@ METHODS={'qwen':[('bench','base','--attn sdpa'),('vdd','vddbase','--attn sdpa'),
                   ('grains','revis_official','--attn sdpa'),('bench','rudder_clone','--attn sdpa'),('grains','grains_clone','--attn eager'),('bench','vti','--attn sdpa')],
          'gemma':[('bench','base',''),('vdd','vddbase','--attn eager'),('vdd','s24a1bl1p05','--attn eager --layer 24 --alpha 1 --lam 1 --pen 0.5'),
                   ('bench','revis',''),('bench','rudder_clone',''),('bench','grains_clone',''),('bench','vti','')]}
-# tag: (sources in row order, setting the rows must have; None for a run that records no setting)
 REUSE={'qwen':{'vddbase':(['chair_dev60/base-0-60'],dict(alpha=0.0,lam=0.0,pen=0.0,attn='sdpa')),'vtiws_v0.9_t0.9':(['chair_dev60_vtiws/vtiws_v0.9_t0.9-0-60'],None)},
        'gemma':{'vddbase':(['gchair_dev60/base-0-30','gchair_dev60/base-30-60'],dict(alpha=0.0,lam=0.0,pen=0.0,attn='eager')),
                 's24a1bl1p05':(['gchair_dev60/s24a1bl1p05-0-30'],dict(alpha=1.0,layer=24,lam=1.0,pen=0.5,attn='eager'))}}

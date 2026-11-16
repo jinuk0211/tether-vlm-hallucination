@@ -1,7 +1,3 @@
-"""THRONE judgment of one 1,000-image block of a t4k run (rows 1000-4999 of throne_full): eval.throne.judge, unchanged (THRONE's
-throne_aqa_evaluation.py, batch 32, 3 question formats), with one judge. The responses are the block's rows of runs/t4k_parts_MODEL/TAG-*.jsonl in
-set order; output runs/t4k_MODEL/eval/TAG/bBLOCK-JUDGE/{responses.json,combined/evaluations_*flan-t5-JUDGE.json}.
-usage: python -m tether.eval.throne_5k_judge GPU_UUID MODEL TAG BLOCK JUDGE     (THRONE venv; env BENCH, RBD2_SETS)"""
 import json,shutil,sys
 from pathlib import Path
 from tether.eval import throne as S

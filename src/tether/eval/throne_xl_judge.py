@@ -1,8 +1,3 @@
-"""flan-t5-xl judgments for THRONE runs that have only base and large (to fill the table's xl columns). eval.throne.judge, unchanged,
-with JUDGES = [xl], for one tag. Nothing is judged unless eval/TAG/responses.json equals what eval/throne_judge.py would write from the run file
-(eval/throne_judge.py would delete combined/ with the base and large judgments otherwise) and combined/ holds base and large; combined/ is copied
-to combined.bak-1108 before the first judgment.
-usage: python -m tether.eval.throne_xl_judge GPU_UUID RUNDIR TAG   |   python -m tether.eval.throne_xl_judge --check RUNDIR TAG   (only the checks)"""
 import json,shutil,sys
 from pathlib import Path
 from tether.eval import throne as S

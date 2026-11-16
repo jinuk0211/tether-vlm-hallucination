@@ -1,9 +1,4 @@
 #!/bin/bash
-# Worker for hat_chain.sh. Queue lines "MODEL KIND TAG START END args..." -> runs/${HAT_RUN}_MODEL/TAG-START-END.jsonl (resumable).
-# KIND vdd = decoding/vdd_vobj.py (RBD and vdd Base; --vobj), vdd7 = decoding/vdd_cf.py (+ --cf, --ew), bench = baselines/bench_qwen.py (qwen) / baselines/bench_qwen3.py (qwen3) / baselines/bench_gemma.py (gemma),
-# grains = baselines/bench_qwen3_official.py (qwen3), vti = baselines/vti_ws.py at 0.9/0.9 (qwen). A unit is claimed with mkdir in claims_$HAT_RUN only when the GPU has the model's MiB free twice, 10-30 s apart
-# (other jobs share these GPUs). CUDA out-of-memory failures are not counted (back off 1-3 min); other failures twice -> skipped.
-# Exits when every unit is complete or failed twice.    usage: hat_pool.sh GPU_INDEX WORKER_NAME QUEUE
 G=$1; W=$2; Q=$3; RUN=${HAT_RUN:-hat385}
 R=${HAT_L:-/home/project-b/LJW}/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_$RUN; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

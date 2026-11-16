@@ -1,18 +1,3 @@
-"""VTI (author code) on Qwen2.5-VL with a whitespace-normalised demo file.
-
-Diagnosis (2026-11-03): the author's textual direction on Qwen is a newline direction. Logit lens of
-textual_direction[24..28] puts '\\n', '.\\n', ' \\n' ... at the top of 152k tokens, and ' -' at layer 14, which matches
-the '\\n- \\n- ...' loops in 970/1000 full-THRONE captions. Cause: in experiments/data/hallucination_vti_demos.jsonl,
-88/100 'value' captions contain newlines and only 19/100 'h_value' captions do, so value - h_value at the last token
-carries the paragraph format.
-
-Fix: same author pipeline (get_demos with seed 42 and 70 demos, prompt_pairs, obtain_textual_vti with the visual VTI
-active, PCA rank 1, alpha 0.9), but value and h_value have their whitespace collapsed to single spaces. The visual
-direction does not depend on the captions and is reused from the existing artifact.
-
-Steps: re-extract the textual direction -> logit lens of old and new direction -> generate N images of a caption set
-with the new artifact (both directions, alpha 0.9) -> rows + summary.
-usage: python -m tether.baselines.vti_fix --set SET.jsonl --out DIR [--n 20]"""
 import argparse,contextlib,hashlib,json,random,sys,time,types
 from pathlib import Path
 import torch
@@ -56,7 +41,6 @@ def main(a):
         tok=adapter.processor.tokenizer
         print('logit lens, OLD textual direction:',flush=True);lens(adapter,tok,old['textual_direction'])
         original.install(adapter.vision_layers,old['visual_direction'][1:].to(adapter.device),.9,layers,vision=True)
-        # Same as original.fit: seed 42 right before get_demos; num_trials only sizes the unused masked images.
         args=types.SimpleNamespace(num_demos=70,num_trials=1,mask_ratio=.99,data_file=str(OLD/'data'))
         picked=[]
         def pairs(*p,**k):picked.extend(d['image'] for d in p[3]);return original.prompt_pairs(adapter,*p,**k)

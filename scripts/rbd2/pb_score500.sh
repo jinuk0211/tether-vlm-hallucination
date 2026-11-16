@@ -1,6 +1,4 @@
 #!/bin/bash
-# Score the 500-image runs: experiments/join_500.py, CHAIR and AMBER on the CPU, THRONE judges for the two THRONE runs on GPU 5,
-# THRONE scores. Everything goes to logs/score500.log.
 L=/home/project-b/LJW; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 export PYTHONPATH=$R/src${PYTHONPATH:+:$PYTHONPATH}
 export RBD2_SETS=$O/sets RBD2_CHAIR_TEST_STATE=$R/data/hallucination-suite/chair-scorer-state.json AMBER_REPO=$R/data/amber/repo \

@@ -1,11 +1,3 @@
-"""ALOHa object parsing into the shared cache (eval/hat_common.py); only texts not yet cached are parsed.
-The official parser is gone: OpenAI shut down gpt-3.5-turbo, gpt-4 and gpt-4-turbo on 2026-10-23. Backends:
-  hf:CHECKPOINT   local LLM with the official prompts (system prompt, first 3 in-context examples, as METRICS['aloha']), greedy.
-                  Run with .venv on one GPU.
-  openai:MODEL    official OpenAIObjectParser with another model, e.g. openai:gpt-4o. Run with venvs/aloha; OPENAI_API_KEY.
-  spacy           official SpacyObjectParser (nouns, no LLM). Run with venvs/aloha.
-usage: python -m tether.eval.hat_parse PARSER [--hat] [--run RUNDIR ...] [--batch 8]
-  always the references of sets/hat385; --hat also HAT's own 400 captions; --run also every caption in RUNDIR's units."""
 import argparse,concurrent.futures as cf,glob,importlib.util,json,time
 from tether.eval.hat_common import HAT_JSON, L, SET, key, load_cache, parser_file, read
 
@@ -21,7 +13,6 @@ def worklist(a):
     return w
 
 def snapshot(checkpoint):
-    """The one cached snapshot: models fetched at a fixed revision have no refs/main, which offline loading by name needs."""
     s=glob.glob(str(L/'.cache/huggingface/hub'/f"models--{checkpoint.replace('/','--')}"/'snapshots/*'))
     return s[0] if len(s)==1 else checkpoint
 
@@ -60,7 +51,6 @@ def official_backend(parser):
     return lambda batch:list(ex.map(one,batch))
 
 def split_on_oom(gen,part):
-    """A batch of long captions can overflow an A5000 next to the model; halve it instead of failing the night's run."""
     try:return gen(part)
     except RuntimeError as e:
         if 'out of memory' not in str(e).lower() or len(part)==1:raise

@@ -1,4 +1,3 @@
-# Gemma CHAIR ablation of RBD s24a1bl1p05 (experiments/chair_ablation_gemma.py)
 chair_test500 gabl_chair500 abl_nosteer 60 100 --attn eager --lam 1 --pen 0.5
 chair_test500 gabl_chair500 abl_nosteer 100 150 --attn eager --lam 1 --pen 0.5
 chair_test500 gabl_chair500 abl_nosteer 150 200 --attn eager --lam 1 --pen 0.5

@@ -1,4 +1,3 @@
-# baselines on full AMBER generative; revis last.
 base sdpa amber_full1004 amber_full1004 0 100
 rudder_clone sdpa amber_full1004 amber_full1004 0 100
 grains_clone eager amber_full1004 amber_full1004 0 100

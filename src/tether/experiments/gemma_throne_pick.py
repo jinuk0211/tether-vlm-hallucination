@@ -1,8 +1,3 @@
-"""Pick our Gemma setting on the 60 dev images and write the test queue for it (gemma_chain.sh).
-Rule (fixed before any dev score): highest 2-judge THRONE F0.5 (eval/throne_partial.py, flan-t5 base+large, threshold 6)
-among the candidates below, ties to the earlier one; s24a1bl2p1 first = Qwen's THRONE pick (layer 16/28) at the same
-relative depth of Gemma's 42 layers. Writes queues/gemma_ours.txt: 20 units of 50 test images.
-env as eval/throne_partial.py with RBD2_THRONE_SET=throne_gdev60 RBD2_N=60."""
 import re,subprocess,sys
 from pathlib import Path
 O=Path('/home/project-b/LJW/vlm-grounding-steering/outputs/rbd2-20261102');DEV=O/'runs/gemma_throne_dev60'

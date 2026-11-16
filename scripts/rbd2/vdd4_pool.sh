@@ -1,10 +1,4 @@
 #!/bin/bash
-# Worker for vdd4_chain.sh. Queue lines "DATA OUTDIR TAG START END args..." -> decoding/vdd_vobj.py --model $MODEL on
-# sets/DATA.jsonl rows START-END into runs/OUTDIR/TAG-START-END.jsonl (resumable). A unit is claimed with mkdir in
-# claims_vdd4 only when the GPU has MIN_FREE MiB free twice, 10-30 s apart (other jobs share these GPUs). CUDA
-# out-of-memory failures are not counted (back off 1-3 min); other failures twice -> skipped. Exits when every unit is
-# complete or failed twice.
-# usage: vdd4_pool.sh GPU_INDEX WORKER_NAME QUEUE [MIN_FREE_MIB] [MODEL]
 G=$1; W=$2; Q=$3; MF=${4:-19500}; MODEL=${5:-qwen}
 R=/home/project-b/LJW/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; L=$O/logs; C=$O/claims_vdd4; mkdir -p $L $C
 export HF_HOME=$R/../.cache/huggingface HF_HUB_CACHE=$R/../.cache/huggingface/hub HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \

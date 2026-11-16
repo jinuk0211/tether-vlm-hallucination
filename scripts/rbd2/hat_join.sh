@@ -1,15 +1,4 @@
 #!/bin/bash
-# Adds GPUs to the running HAT + ALOHa run (hat_gpu3.sh) as they free up, no restart.
-#   GPU 2 x1        when the process LENS_PID (the earlier j2 pool) has gone, no analysis/logit_lens.py runs, and CHAIR dev (cdev_chain.sh) has ended
-#   GPU 4 x2, 5 x2  by hand only: touch $HAT_RUN/join_gpu45 (after the Qwen3 GrAInS and REVIS runs). No process or memory check:
-#                   a job stopped without its end line keeps its GPUs booked while they look free.
-#                   First slot on each at join_gpu45, next to one CHAIR dev worker; second slot when CHAIR dev has ended.
-# A joined worker runs hat_pool.sh over the current queues in priority order dev, test, bg (the chain rewrites dev and test per phase and model; bg holds the
-# later model's units that need no pick, so workers do not idle while the chain parses and scores) until hat_gpu3.sh has ended; with
-# no open unit a pool exits at once, so joining late costs nothing. hat_pool.sh keeps its memory gates.
-# The second worker on a GPU starts 150 s later, so its check sees the first model. The process pattern is anchored at the start of the
-# command line: an unanchored grep also matches a remote shell whose command text mentions it.
-# usage: hat_join.sh [check]     check prints the conditions and exits.     Log: logs/hat_join.log
 L=${HAT_L:-/home/project-b/LJW}; R=$L/vlm-grounding-steering; O=$R/outputs/rbd2-20261102; cd $R
 RUN=${HAT_RUN:-hat385}; LOG=$O/logs/hat_join.log
 MAIN=${HAT_MAIN_PID:-1258987}; LENS=${LENS_PID:-904641}; CDEV=${CDEV_PID:-0}
