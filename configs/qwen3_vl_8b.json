@@ -1,0 +1,21 @@
+{
+  "model": {
+    "family": "qwen3_vl",
+    "checkpoint": "Qwen/Qwen3-VL-8B-Instruct",
+    "revision": "0c351dd01ed87e9c1b53cbc748cba10e6187ff3b",
+    "device": "cuda",
+    "dtype": "bfloat16",
+    "attn_implementation": "eager",
+    "image_size": 448,
+    "yes_token": "Yes",
+    "no_token": "No"
+  },
+  "generation": {"max_new_tokens": 128, "seed": 42},
+  "methods": {
+    "base": {},
+    "revis": {"alpha": 1.6, "risk_quantile": 0.8},
+    "rudder": {"layer": 20, "alpha": 0.5},
+    "grains": {"alpha": 0.5, "ig_steps": 16},
+    "vti": {"alpha": 0.5, "vision_alpha": 0.5, "vision_pooling": "position"}
+  }
+}
