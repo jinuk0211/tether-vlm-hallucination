@@ -1,7 +1,5 @@
 import json
 import os
-import random
-import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Mapping
@@ -9,8 +7,6 @@ from urllib.parse import urlsplit
 
 SPLITS = {"discovery", "fit", "tune", "test"}
 TASKS = {"pope", "caption", "causal", "mme", "mmhal"}
-CAPTION_PROMPT = "Please describe this image in detail."
-YES_NO_SUFFIX = " Answer yes or no."
 
 
 def _read_json_records(path):
@@ -38,15 +34,6 @@ def read_manifest(path):
                 )
     validate_disjoint(records)
     return records
-
-
-def write_manifest(records, path):
-    validate_disjoint(records)
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as handle:
-        for record in records:
-            handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def validate_disjoint(manifests, *, check_files=True):
@@ -95,17 +82,6 @@ def validate_disjoint(manifests, *, check_files=True):
     return dict(split_counts)
 
 
-def image_group_id(image_name):
-    stem = Path(image_name).stem
-    match = re.search(r"(?:^|_)0*(\d{1,12})(?:_\d{3})?$", stem)
-    if stem.startswith("COCO_") and match:
-        return f"coco:{int(match.group(1))}"
-    if stem.isdigit():
-        return f"coco:{int(stem)}"
-    base = re.sub(r"_\d{3}$", "", stem)
-    return f"image:{base}"
-
-
 def _local_image(root, name):
     root = Path(root).resolve()
     path = (root / name).resolve()
@@ -114,93 +90,6 @@ def _local_image(root, name):
     if not path.is_file():
         raise FileNotFoundError(path)
     return str(path)
-
-
-def _yes_no_label(value):
-    label = str(value).strip().lower()
-    if label not in {"yes", "no"}:
-        raise ValueError(f"Ground-truth label must be yes/no, got {value!r}")
-    return label
-
-
-def prepare_pope(input_path, image_root, split="test", *, subset=None):
-    subset = subset or Path(input_path).stem
-    records = [
-        {
-            "id": f"pope:{subset}:{row['question_id']}",
-            "group_id": image_group_id(row["image"]),
-            "image": _local_image(image_root, row["image"]),
-            "prompt": row["text"],
-            "label": _yes_no_label(row["label"]),
-            "task": "pope",
-            "split": split,
-            "metadata": {"subset": subset, "question_id": row["question_id"]},
-        }
-        for row in _read_json_records(input_path)
-    ]
-    validate_disjoint(records)
-    return records
-
-
-def prepare_causal(input_path, image_root, split="test"):
-    records = []
-    for row in _read_json_records(input_path):
-        for key in ("image_name", "question", "answer", "id", "tag", "type"):
-            if key not in row:
-                raise ValueError(f"Causal-HalBench entry missing {key}")
-        records.append(
-            {
-                "id": f"causal:{row['id']}",
-                "group_id": image_group_id(row["image_name"]),
-                "image": _local_image(image_root, row["image_name"]),
-                "prompt": row["question"],
-                "label": _yes_no_label(row["answer"]),
-                "task": "causal",
-                "split": split,
-                "metadata": {"causal_qa": dict(row)},
-            }
-        )
-    validate_disjoint(records)
-    return records
-
-
-def prepare_mme(root, split="test"):
-    root = Path(root)
-    records = []
-    for category in sorted(p for p in root.iterdir() if p.is_dir()):
-        question_dir = category / "questions_answers_YN"
-        image_dir = category / "images"
-        if not question_dir.is_dir():
-            question_dir, image_dir = category, category
-        for question_file in sorted(question_dir.glob("*.txt")):
-            candidates = [
-                image_dir / f"{question_file.stem}{extension}"
-                for extension in (".jpg", ".png", ".jpeg", ".JPEG", ".JPG")
-            ]
-            candidates = [p for p in candidates if p.is_file()]
-            if len(candidates) != 1:
-                raise ValueError(f"{question_file}: expected exactly one matching image")
-            lines = question_file.read_text(encoding="utf-8-sig").splitlines()
-            for index, line in enumerate(line for line in lines if line.strip()):
-                fields = line.rsplit("\t", 1)
-                if len(fields) != 2:
-                    raise ValueError(f"{question_file}: expected question TAB yes/no")
-                records.append(
-                    {
-                        "id": f"mme:{category.name}:{question_file.stem}:{index}",
-                        "group_id": f"mme:{category.name}:{question_file.stem}",
-                        "image": str(candidates[0].resolve()),
-                        "prompt": fields[0],
-                        "label": _yes_no_label(fields[1]),
-                        "task": "mme",
-                        "split": split,
-                        "metadata": {"category": category.name, "question_index": index},
-                    }
-                )
-    if not records:
-        raise ValueError(f"No MME question files found below {root}")
-    validate_disjoint(records)
-    return records
 
 
 def prepare_mmhal(input_path, image_root, split="test"):
@@ -229,190 +118,5 @@ def prepare_mmhal(input_path, image_root, split="test"):
         })
     if not records:
         raise ValueError("MMHal template is empty")
-    validate_disjoint(records)
-    return records
-
-
-def _segmentation_mask(segmentation, width, height):
-    import numpy as np
-    from PIL import Image, ImageDraw
-
-    if isinstance(segmentation, list):
-        canvas = Image.new("1", (width, height))
-        draw = ImageDraw.Draw(canvas)
-        for polygon in segmentation:
-            if len(polygon) < 6 or len(polygon) % 2:
-                raise ValueError("Invalid COCO segmentation polygon")
-            draw.polygon(list(zip(polygon[::2], polygon[1::2])), fill=1)
-        return np.asarray(canvas, dtype=bool)
-    if isinstance(segmentation, dict):
-        try:
-            from pycocotools import mask as mask_utils
-        except ImportError as exc:
-            raise ImportError("COCO RLE masks require pip install pycocotools") from exc
-        rle = segmentation
-        if isinstance(rle["counts"], list):
-            rle = mask_utils.frPyObjects(rle, height, width)
-        elif isinstance(rle["counts"], str):
-            rle = {**rle, "counts": rle["counts"].encode("ascii")}
-        mask = mask_utils.decode(rle).astype(bool)
-        if mask.shape != (height, width):
-            raise ValueError("COCO RLE mask size does not match its image")
-        return mask
-    raise ValueError("Missing/unsupported segmentation: bounding boxes are not masks")
-
-
-def _translated_control(target, all_objects, rng, attempts=512):
-    import numpy as np
-
-    ys, xs = np.nonzero(target)
-    if not len(xs):
-        return None
-    crop = target[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
-    height, width = target.shape
-    crop_height, crop_width = crop.shape
-    for _ in range(attempts):
-        x = rng.randrange(width - crop_width + 1)
-        y = rng.randrange(height - crop_height + 1)
-        if not (all_objects[y : y + crop_height, x : x + crop_width] & crop).any():
-            control = np.zeros_like(target)
-            control[y : y + crop_height, x : x + crop_width] = crop
-            return control
-    return None
-
-
-def prepare_coco(
-    annotation_path,
-    image_root,
-    output_dir,
-    *,
-    seed=42,
-    discovery_count=200,
-    fit_count=200,
-    tune_count=200,
-    test_count=0,
-    exclude_group_ids=(),
-):
-    import numpy as np
-    from PIL import Image
-
-    counts = {
-        "discovery": discovery_count, "fit": fit_count, "tune": tune_count, "test": test_count
-    }
-    if any(value < 0 for value in counts.values()):
-        raise ValueError("Image counts must be nonnegative")
-    annotations = json.loads(Path(annotation_path).read_text(encoding="utf-8"))
-    categories = {row["id"]: row["name"] for row in annotations["categories"]}
-    by_image = defaultdict(list)
-    for row in annotations["annotations"]:
-        by_image[row["image_id"]].append(row)
-    excluded = set(exclude_group_ids)
-    images = [
-        row for row in sorted(annotations["images"], key=lambda r: r["id"])
-        if by_image[row["id"]] and f"coco:{row['id']}" not in excluded
-    ]
-    rng = random.Random(seed)
-    rng.shuffle(images)
-    candidates = iter(images)
-    output_dir = Path(output_dir).resolve()
-    records = []
-    for split, count in counts.items():
-        accepted = 0
-        while accepted < count:
-            try:
-                image_info = next(candidates)
-            except StopIteration as exc:
-                raise ValueError(
-                    f"Insufficient eligible images for {split}: {accepted}/{count}. "
-                    "Discovery requires an object mask and same-shape background control."
-                ) from exc
-            image_id = image_info["id"]
-            group = f"coco:{image_id}"
-            image_path = _local_image(image_root, image_info["file_name"])
-            objects = by_image[image_id]
-            present = sorted({row["category_id"] for row in objects})
-            absent = sorted(set(categories) - set(present))
-            common = {
-                "group_id": group, "image": image_path, "split": split,
-                "metadata": {
-                    "coco_image_id": image_id,
-                    "present_objects": [categories[key] for key in present],
-                    "annotation_source": str(Path(annotation_path).resolve()),
-                    "seed": seed,
-                },
-            }
-            if split == "discovery":
-                with Image.open(image_path) as original:
-                    image = original.convert("RGB")
-                width, height = image.size
-                masks = {}
-                for obj in objects:
-                    mask = _segmentation_mask(obj.get("segmentation"), width, height)
-                    category = obj["category_id"]
-                    masks[category] = masks.get(category, np.zeros_like(mask)) | mask
-                all_objects = np.logical_or.reduce(list(masks.values()))
-                selected = None
-                for category in sorted(masks, key=lambda key: int(masks[key].sum())):
-                    target = masks[category]
-                    area = int(target.sum())
-                    if not 0.005 <= area / (width * height) <= 0.3:
-                        continue
-                    control = _translated_control(target, all_objects, rng)
-                    if control is not None:
-                        selected = category, target, control
-                        break
-                if selected is None:
-                    continue
-                category, target, control = selected
-                mask_dir = output_dir / "occlusions"
-                mask_dir.mkdir(parents=True, exist_ok=True)
-                variants = {}
-                original_array = np.asarray(image)
-                for name, mask in (("object_masked_image", target), ("control_image", control)):
-                    pixels = original_array.copy()
-                    pixels[mask] = (128, 128, 128)
-                    path = mask_dir / f"{image_id}_{category}_{name}.png"
-                    Image.fromarray(pixels).save(path)
-                    variants[name] = str(path)
-                records.append({
-                    **common,
-                    "id": f"coco:discovery:{image_id}:{category}",
-                    "task": "pope",
-                    "prompt": f"Is there a {categories[category]} in the image?{YES_NO_SUFFIX}",
-                    "label": "yes",
-                    **variants,
-                    "metadata": {
-                        **common["metadata"], "object_category_id": category,
-                        "object_name": categories[category],
-                        "mask_pixels": int(target.sum()),
-                        "control_pixels": int(control.sum()),
-                        "occlusion_fill_rgb": [128, 128, 128],
-                        "mask_source": "COCO segmentation; PIL polygons / pycocotools RLE",
-                        "diagnostic_only": True,
-                    },
-                })
-            else:
-                if split in {"fit", "tune"}:
-                    if not absent:
-                        continue
-                    for category, label in ((rng.choice(present), "yes"), (rng.choice(absent), "no")):
-                        records.append({
-                            **common, "id": f"coco:{split}:{image_id}:{label}",
-                            "task": "pope",
-                            "prompt": f"Is there a {categories[category]} in the image?{YES_NO_SUFFIX}",
-                            "label": label,
-                            "chosen": "Yes." if label == "yes" else "No.",
-                            "rejected": "No." if label == "yes" else "Yes.",
-                            "metadata": {
-                                **common["metadata"], "object_name": categories[category],
-                                "subset": "coco_annotation_balanced",
-                                "preference_source": "annotation yes/no; task-adapted, not original paper pairs",
-                            },
-                        })
-                records.append({
-                    **common, "id": f"coco:{split}:{image_id}:caption",
-                    "task": "caption", "prompt": CAPTION_PROMPT,
-                })
-            accepted += 1
     validate_disjoint(records)
     return records

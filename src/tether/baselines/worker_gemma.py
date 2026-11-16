@@ -11,7 +11,7 @@ from tether.baselines.author_bridge import ROOT, load_authors, verify_clone_sour
 import torch
 from tether.models.backend import load_adapter
 from tether.baselines.local import build_baseline
-from tether.cli import _seed, _validate_artifact, _versions
+from tether.baselines.common import _seed, _validate_artifact, _versions
 
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()

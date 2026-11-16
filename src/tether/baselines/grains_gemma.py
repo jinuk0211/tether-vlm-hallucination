@@ -10,7 +10,7 @@ from tether.baselines.author_bridge import ROOT, GemmaAttributionAPI, load_autho
 import numpy as np
 import torch
 from tether.models.backend import load_adapter
-from tether.cli import _seed
+from tether.baselines.common import _seed
 
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()

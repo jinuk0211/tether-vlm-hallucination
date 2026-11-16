@@ -6,7 +6,7 @@ from PIL import Image
 from tether.baselines.author_bridge import load_authors
 from tether.baselines.qwen_compat import QwenAttributionAPI
 from tether.models.backend import load_adapter
-from tether.cli import _seed
+from tether.baselines.common import _seed
 ROOT=Path('/home/project-b/LJW/vlm-grounding-steering');OUT=ROOT/'outputs/qwen3-vl8b';X=OUT/'grains-extraction';X.mkdir(parents=True,exist_ok=True)
 FIT=ROOT/'outputs/qwen25-vl7b-fiveprofiles-20261029-1793247386/data/fit50.jsonl'
 def main(limit):

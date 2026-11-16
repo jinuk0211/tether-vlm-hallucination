@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 from tether.baselines.fp16_attention import stable_fp16_attention
 from tether.models.backend import load_adapter
-from tether.cli import _seed
+from tether.baselines.common import _seed
 from tether.baselines import vti_author as original
 
 ROOT=Path('/home/project-b/LJW/vlm-grounding-steering')

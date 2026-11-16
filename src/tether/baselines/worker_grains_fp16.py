@@ -10,7 +10,7 @@ import traceback
 import torch
 from tether.baselines.author_bridge import ROOT, load_authors, verify_clone_sources, grains_context
 from tether.models.backend import load_adapter
-from tether.cli import _seed
+from tether.baselines.common import _seed
 
 GPU2='GPU-bf42d0ab-8a2e-cc64-26df-f1b8a99ffbde'
 GPU3='GPU-4c593ff4-fcc4-39c9-d7b4-981dabee1cb3'

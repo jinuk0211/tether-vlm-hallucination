@@ -47,3 +47,8 @@ def fetch_sources(names, destination):
                 raise RuntimeError(f"Fetched commit mismatch for {name}")
         result[name] = {"path": str(target), "commit": current, "url": source["url"]}
     return result
+
+
+if __name__ == "__main__":
+    import sys
+    print(json.dumps(fetch_sources(sys.argv[1:], "upstream"), indent=2))

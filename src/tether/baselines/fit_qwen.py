@@ -10,7 +10,7 @@ import torch
 from tether.baselines.author_bridge import ROOT
 from tether.baselines.qwen_loader_gpu23 import GPU2, GPU3, load_qwen, require_gemma_complete, verify_run_protocol
 from tether.baselines.local import extract_baseline
-from tether.cli import _seed, _provenance, _validate_artifact
+from tether.baselines.common import _seed, _provenance, _validate_artifact
 
 
 def sha(path):

@@ -13,7 +13,7 @@ from tether.baselines.author_bridge import ROOT, load_authors, verify_clone_sour
 from tether.baselines.qwen_compat import grains_on_qwen_layer_device
 from tether.baselines.qwen_loader import GPU2, GPU3, PAIR, load_qwen, require_gemma_complete, verify_run_protocol
 from tether.baselines.local import build_baseline
-from tether.cli import _seed, _validate_artifact, _versions
+from tether.baselines.common import _seed, _validate_artifact, _versions
 
 
 def sha(path):

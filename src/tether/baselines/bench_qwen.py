@@ -6,7 +6,7 @@ from tether.baselines.qwen_compat import grains_on_qwen_layer_device
 from tether.baselines.fp16_attention import stable_fp16_attention
 from tether.models.backend import load_adapter
 from tether.baselines.local import build_baseline
-from tether.cli import _seed, _validate_artifact
+from tether.baselines.common import _seed, _validate_artifact
 ROOT=Path('/home/project-b/LJW/vlm-grounding-steering')
 Q=ROOT/'outputs/qwen25-vl7b-fiveprofiles-20261029-1793247386'
 VTI=ROOT/'outputs/qwen-original-vti-1793260357/vti-author.pt'

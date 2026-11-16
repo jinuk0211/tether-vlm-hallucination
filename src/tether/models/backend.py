@@ -123,10 +123,6 @@ class ModelAdapter:
         inputs["return_dict"] = True
         return self.model(**inputs)
 
-    def answer_margin(self, batch):
-        logits = self.forward(batch).logits
-        return logits[0, -1, self.yes_token_id] - logits[0, -1, self.no_token_id]
-
     @torch.no_grad()
     def generate(self, batch, max_new_tokens):
         if max_new_tokens < 1:

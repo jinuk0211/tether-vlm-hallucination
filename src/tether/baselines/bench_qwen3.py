@@ -4,7 +4,7 @@ import torch
 from tether.baselines.author_bridge import load_authors, rudder_context
 from tether.models.backend import load_adapter
 from tether.baselines.local import build_baseline
-from tether.cli import _seed
+from tether.baselines.common import _seed
 
 ROOT = Path('/home/project-b/LJW/vlm-grounding-steering')
 CFG_PATH = ROOT / 'configs/qwen3_vl_8b.json'

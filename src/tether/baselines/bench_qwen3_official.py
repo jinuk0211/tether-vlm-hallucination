@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import torch
 from tether.models.backend import load_adapter
-from tether.cli import _seed
+from tether.baselines.common import _seed
 ROOT=Path('/home/project-b/LJW/vlm-grounding-steering');V=ROOT/'outputs/qwen3-vl8b'
 def read(p):return [json.loads(s) for s in Path(p).read_text().splitlines() if s.strip()]
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()

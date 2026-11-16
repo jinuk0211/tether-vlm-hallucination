@@ -4,7 +4,7 @@ import torch
 from tether.baselines.author_bridge import load_authors, rudder_context, grains_context
 from tether.models.backend import load_adapter
 from tether.baselines.local import build_baseline
-from tether.cli import _seed, _validate_artifact
+from tether.baselines.common import _seed, _validate_artifact
 ROOT=Path('/home/project-b/LJW/vlm-grounding-steering')
 G=ROOT/'outputs/gemma-grains-fp16-v2-20261029-1793246507';OLD=ROOT/'outputs/author-clone-rerun-20261027-165446'
 FP16=('grains_clone',)

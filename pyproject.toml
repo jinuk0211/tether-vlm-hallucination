@@ -19,9 +19,6 @@ dependencies = [
 [project.optional-dependencies]
 eval = ["nltk>=3.9,<4", "pycocotools>=2.0.8", "PatternLite==3.6", "tqdm>=4.66"]
 
-[project.scripts]
-tether = "tether.cli:main"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 
