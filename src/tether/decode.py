@@ -46,15 +46,14 @@ class Belief(LogitsProcessor):
         t = input_ids.shape[1] - self.prompt_len
         if self.steer is not None:
             self.steer.t = t + 1
-        w = 1 - self.r(t)
-        if self.lam:
-            logp = scores.float().log_softmax(-1)[:, self.vobj]
-            r = self.r(t)
-            self.A += r * (logp[0] - logp[1])
-            self.R += r
         if self.lam or self.pen:
+            r = self.r(t)
+            w = 1 - r
             adj = torch.zeros_like(self.A)
             if self.lam:
+                logp = scores.float().log_softmax(-1)[:, self.vobj]
+                self.A += r * (logp[0] - logp[1])
+                self.R += r
                 adj += self.lam * w * (self.A / max(self.R, 1e-6)).clamp(-self.clip, self.clip)
             if self.pen:
                 adj -= self.pen * w
@@ -75,17 +74,16 @@ def main():
     p.add_argument("--lam", type=float, default=0.0)
     p.add_argument("--pen", type=float, default=0.0)
     p.add_argument("--clip", type=float, default=5.0)
-    p.add_argument("--no-color-words", action="store_true")
     p.add_argument("--attn")
     args = p.parse_args()
 
     refs, path = run_rows(args.data, args.output, args.tag, args.start, args.end)
     seed_everything(42)
     adapter = load(args.model, attn=args.attn)
-    vobj = torch.tensor(load_vobj(args.model, not args.no_color_words), device=adapter.device)
-    r = reliability(args.model)
+    vobj = torch.tensor(load_vobj(args.model), device=adapter.device)
+    r = reliability(args.model) if args.alpha or args.lam or args.pen else None
     steer = Steer(adapter.layers[args.layer - 1], args.alpha, r) if args.alpha else None
-    setting = {k: getattr(args, k) for k in ("layer", "alpha", "lam", "pen", "clip", "no_color_words")}
+    setting = {k: getattr(args, k) for k in ("layer", "alpha", "lam", "pen", "clip")}
 
     with open(path, "a") as f:
         for ref in refs:

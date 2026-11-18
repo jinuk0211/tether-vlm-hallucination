@@ -4,11 +4,11 @@ import torch
 
 from tether.baselines import grains, revis, vti
 from tether.baselines.fp16 import fp32_attention_scores
-from tether.models import MODELS, load
+from tether.models import MODELS, load, model_config
 from tether.paths import DIRECTIONS, SETS
 from tether.utils import read_jsonl, seed_everything
 
-METHODS = ("revis", "vti", "grains", "vti-authors", "revis-official")
+METHODS = ("revis", "vti", "grains", "vti-authors")
 
 
 def direction_path(model, method):
@@ -32,12 +32,9 @@ def main():
         direction = grains.extract(adapter, (fit + calibration)[:50])
     elif args.method == "vti-authors":
         vti.download_demo_images()
-        with fp32_attention_scores("qwen2_5_vl"):
+        with fp32_attention_scores(model_config(args.model)["family"]):
             adapter = load(args.model, dtype="float16", attn="eager")
-            direction = vti.extract_authors(adapter, DIRECTIONS)
-    elif args.method == "revis-official":
-        adapter = load(args.model, attn="sdpa")
-        direction = revis.official_calibrate(adapter, revis.official_vectors(adapter))
+            direction = vti.extract_authors(adapter, DIRECTIONS, whitespace=args.model == "qwen")
     elif args.method == "revis":
         adapter = load(args.model, attn="eager")
         direction = revis.extract(adapter, fit, calibration)

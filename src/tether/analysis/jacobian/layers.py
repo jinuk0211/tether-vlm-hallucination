@@ -245,7 +245,7 @@ def main():
         data = {k: loaded[k] for k in loaded.files}
     meta = json.loads((OUT_DIR / "meta.json").read_text())
     tokenizer = AutoTokenizer.from_pretrained(args.model_dir)
-    physical = set(object_vocabulary(tokenizer, OUT_DIR / "vobj_qwen35_4b.json"))
+    physical = set(object_vocabulary(tokenizer, OUT_DIR / "vobj.json"))
     coco = {t for ids in meta["node_ids"].values() for t in ids}
     vocab = meta["vocab"]
     kinds = {int(t): kind_of(text, int(t), coco, physical) for t, text in vocab.items()}

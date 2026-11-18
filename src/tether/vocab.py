@@ -35,8 +35,6 @@ were been being have has had having get gets got make makes made appear appears 
 while if because although though whether either neither like unlike per via etc overall perhaps possibly likely
 """.split())
 
-COLOR_WORDS = {"orange", "cream", "creams", "ivory", "violet", "coral", "bronze", "copper"}
-
 
 @lru_cache(maxsize=None)
 def wordnet():
@@ -102,12 +100,12 @@ def object_tokens(tokenizer):
     return ids
 
 
-def vobj_path(model, colors=True):
-    return VOBJ / (f"{model}.json" if colors else f"{model}-nocolor.json")
+def vobj_path(model):
+    return VOBJ / f"{model}.json"
 
 
-def load_vobj(model, colors=True):
-    return json.loads(vobj_path(model, colors).read_text())
+def load_vobj(model):
+    return json.loads(vobj_path(model).read_text())
 
 
 def main():
@@ -123,10 +121,8 @@ def main():
         config = model_config(model)
         tok = AutoProcessor.from_pretrained(config["checkpoint"], revision=config["revision"]).tokenizer
         ids = object_tokens(tok)
-        kept = [i for i in ids if tok.decode([i]).strip().lower() not in COLOR_WORDS]
         vobj_path(model).write_text(json.dumps(ids))
-        vobj_path(model, False).write_text(json.dumps(kept))
-        print(model, len(ids), len(kept))
+        print(model, len(ids))
 
 
 if __name__ == "__main__":

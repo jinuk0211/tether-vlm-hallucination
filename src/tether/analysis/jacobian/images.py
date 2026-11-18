@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 from PIL import Image
 
-from tether.analysis.jacobian.common import CHAIR_STATE, IMAGE_SIZE, SPEC, load_chair
+from tether.analysis.jacobian.common import CHAIR_STATE, GRID, IMAGE_SIZE, load_chair
 from tether.analysis.jacobian.probe import PILOT_IMAGES
 from tether.paths import COCO, SETS
 from tether.utils import read_jsonl, write_jsonl
@@ -19,7 +19,7 @@ def main():
 
     api = Annotations(str(COCO / "annotations/instances_val2014.json"))
     scorer = load_chair(COCO / "annotations", CHAIR_STATE)
-    cell = IMAGE_SIZE // SPEC.grid
+    cell = IMAGE_SIZE // GRID
     rows, masks = [], {}
     for r in read_jsonl(SETS / "chair_test500.jsonl")[: args.n]:
         image_id = r["metadata"]["image_id"]
@@ -30,9 +30,7 @@ def main():
                 (IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.NEAREST
             )
             union[name] = union.get(name, False) | (np.asarray(m) > 127)
-        masks[image_id] = {
-            n: m.reshape(SPEC.grid, cell, SPEC.grid, cell).mean((1, 3)) for n, m in union.items()
-        }
+        masks[image_id] = {n: m.reshape(GRID, cell, GRID, cell).mean((1, 3)) for n, m in union.items()}
         rows.append(
             {
                 "image_id": image_id,

@@ -2,7 +2,6 @@
   "rudder": ["https://github.com/Akko000/RUDDER-Residual-Update-Directed-DEcoding-Regulation-.git", "bd149d8dbde6a9097dd02aea80f83d0bd8876761"],
   "grains": ["https://github.com/duykhuongnguyen/GrAInS.git", "8ad78db3040fbb7b0aec9e544a3dcc7b9c050b5b"],
   "vti": ["https://github.com/shengliu66/VTI.git", "bb5dfee33a9e555f22af9faa7b3495c0ac3df69e"],
-  "revis": ["https://github.com/antgroup/Revis.git", "75f4d29d402d4c1c4dbb2c69e88e3aa50cd0c9cc"],
   "chair": ["https://github.com/Maxlinn/CHAIR-metric-standalone.git", "4087a26211aa2339b9a76307cb8f0321ef691d0a"],
   "throne": ["https://github.com/amazon-science/THRONE.git", "45badbb71c2b3e8d6619f6b45cccdac24dd20b46"]
 }

@@ -11,7 +11,7 @@ correction z(o) += w(t)·(λ·clip(A(o) / Σr, −c, c) − π)        objects n
 ```
 
 where `h̄`, `p̄` come from the gray row and `r(t)` is the gray-image KL along the caption, normalized to 1 at the
-opening (measured once per model in the audit). With α = λ = π = 0 the same code path decodes Base.
+opening (measured once per model from teacher-forced Base captions). With α = λ = π = 0 the same code path decodes Base.
 
 ## Layout
 
@@ -19,7 +19,7 @@ opening (measured once per model in the audit). With α = λ = π = 0 the same c
 src/tether/
   decode.py        TETHER (and Base) decoding
   lockstep.py      real/contrast pair decoding shared by TETHER, VCD and M3ID
-  schedule.py      r(t) from the audit
+  schedule.py      r(t) of each model
   vocab.py         object vocabulary V_obj
   models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4
   baselines/       generate.py (captions with any baseline), fit.py (directions), revis, rudder, grains, vti,
@@ -28,7 +28,7 @@ src/tether/
   data/            CHAIR test 500, CHAIR dev 100, THRONE 5,000, POPE, development pairs
   experiments/     queues for each table, joins, case studies, trade-off figure
   analysis/        Sec. 3 and the appendix audit: selfcheck, pope, decay, reliance, probe, lens, recheck, jacobian
-configs/           models, and the TETHER setting of each table (tether.json)
+configs/           models, and the TETHER setting of each model (tether.json)
 scripts/           run_queue.sh, setup_scorers.sh
 ```
 
@@ -39,7 +39,7 @@ everything a run writes, `upstream/` for the released code of the baselines and 
 
 ```
 pip install -e ".[eval,baselines,analysis]"
-python -m tether.upstream                 # pinned checkouts of RUDDER, GrAInS, VTI, REVIS, CHAIR, THRONE
+python -m tether.upstream                 # pinned checkouts of RUDDER, GrAInS, VTI, CHAIR, THRONE
 bash scripts/setup_scorers.sh             # NLTK data, THRONE environment and Flan-T5 judges
 python -m tether.data.sets                # images, annotations and all evaluation sets
 python -m tether.vocab                    # V_obj for each model
@@ -85,8 +85,11 @@ appendix from the same outputs. The Jacobian-lens pilot (Fig. 1 a5) needs the `j
 ## Experiments (Sec. 5)
 
 ```
-python -m tether.baselines.fit --model qwen --method revis        # directions: revis, vti, grains (all models),
-                                                                  # vti-authors (Qwen2.5), revis-official (Qwen3)
+python -m tether.baselines.fit --model qwen --method revis        # directions: revis, grains (all models),
+                                                                  # vti-authors (Qwen2.5, Qwen3), vti (Gemma)
+python -m tether.decode --model qwen3 --tag base --data data/sets/chair_test500.jsonl --output outputs/runs/chair_test500/qwen3
+python -m tether.analysis.decay.collect --model qwen3             # r(t) of Qwen3-VL from its Base captions
+python -m tether.analysis.decay.analyze outputs/decay qwen3       # (Qwen2.5 and Gemma: from the audit)
 python -m tether.experiments.chair queue --table test --gpus 4    # CHAIR 500: Base, REVIS, RUDDER, GrAInS, VTI, M3ID, TETHER
 bash scripts/run_queue.sh 0 outputs/runs/queues/chair_test500-test-0.txt
 python -m tether.experiments.chair join --table test
@@ -104,8 +107,8 @@ python -m tether.experiments.tradeoff                             # Fig. 3
 python -m tether.experiments.cases --selfcheck outputs/audit/selfcheck/qwen-base-rows.jsonl
 ```
 
-The TETHER rows use the settings in `configs/tether.json`; THRONE uses V_obj without colour words
-(`--no-color-words`). VCD runs with `python -m tether.baselines.contrastive --method vcd`.
+Every TETHER row, on CHAIR and THRONE, uses the setting of its model in `configs/tether.json`. VCD runs with
+`python -m tether.baselines.contrastive --method vcd`.
 
 ## Released code
 
@@ -114,7 +117,6 @@ The TETHER rows use the settings in `configs/tether.json`; THRONE uses V_obj wit
 | RUDDER | Akko000/RUDDER-Residual-Update-Directed-DEcoding-Regulation- `bd149d8` |
 | GrAInS | duykhuongnguyen/GrAInS `8ad78db` |
 | VTI | shengliu66/VTI `bb5dfee` |
-| REVIS | antgroup/Revis `75f4d29` |
 | CHAIR | Maxlinn/CHAIR-metric-standalone `4087a26` |
 | THRONE | amazon-science/THRONE `45badbb` |
 

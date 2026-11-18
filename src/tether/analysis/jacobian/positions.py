@@ -10,8 +10,6 @@ from tether.analysis.jacobian.common import (
     CHAIR_STATE,
     JACOBIAN,
     MAX_NEW_TOKENS,
-    SPEC,
-    configure_generation,
     fast_patch_embedding,
     load_chair,
     load_image,
@@ -145,7 +143,6 @@ def main():
         .eval()
     )
     fast_patch_embedding(model)
-    configure_generation(model, processor, SPEC)
     lm = jlens.from_hf(model, processor.tokenizer)
     lens = JacobianLens.load(args.lens)
     jacobians = {layer: J.to("cuda") for layer, J in lens.jacobians.items()}

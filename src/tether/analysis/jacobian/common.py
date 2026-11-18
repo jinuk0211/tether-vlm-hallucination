@@ -3,7 +3,6 @@ import importlib.util
 import json
 import os
 import pickle
-from collections import namedtuple
 from pathlib import Path
 
 import numpy as np
@@ -14,46 +13,7 @@ from tether.paths import OUT as OUT_ROOT
 from tether.paths import UPSTREAM
 from tether.vocab import object_tokens
 
-ModelSpec = namedtuple(
-    "ModelSpec",
-    "model_id revision model_class grid depth_layers transformers_major uses_spectra chat_options stop_tokens",
-    defaults=(4, True, (), ()),
-)
-
-
-MODELS = {
-    "qwen3": ModelSpec(
-        "Qwen/Qwen3-VL-8B-Instruct",
-        "0c351dd01ed87e9c1b53cbc748cba10e6187ff3b",
-        "Qwen3VLForConditionalGeneration",
-        14,
-        (3, 8, 17, 26, 35),
-    ),
-    "qwen25": ModelSpec(
-        "Qwen/Qwen2.5-VL-7B-Instruct",
-        "cc594898137f460bfe9f0759e9844b3ce807cfb5",
-        "Qwen2_5_VLForConditionalGeneration",
-        16,
-        (2, 6, 13, 20, 27),
-    ),
-    "qwen35": ModelSpec(
-        "Qwen/Qwen3.5-9B",
-        "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
-        "Qwen3_5ForConditionalGeneration",
-        14,
-        (2, 7, 15, 23, 31),
-        transformers_major=5,
-        uses_spectra=False,
-        chat_options=(("enable_thinking", False),),
-        stop_tokens=("<|im_end|>", "<|endoftext|>"),
-    ),
-}
-PILOT_MODEL = os.environ.get("PILOT_MODEL", "qwen3")
-SPEC = MODELS[PILOT_MODEL]
-MODEL_ID, REVISION = SPEC.model_id, SPEC.revision
-
 JACOBIAN = OUT_ROOT / "audit" / "jacobian"
-OUT = JACOBIAN / PILOT_MODEL
 CHAIR_STATE = JACOBIAN / "chair_state.pkl"
 CHAIR_PY = UPSTREAM / "chair" / "chair.py"
 
@@ -61,7 +21,7 @@ PROMPT = "Please describe this image in detail."
 IMAGE_SIZE = 448
 GRAY_RGB = (128, 128, 128)
 MAX_NEW_TOKENS = 512
-EARLY_STEPS = 16
+GRID = 14
 
 
 def read_jsonl(path):
@@ -92,59 +52,6 @@ def fast_patch_embedding(model):
         return output.to(pixels.dtype)
 
     conv.forward = forward
-
-
-def configure_generation(model, processor, spec=None):
-    spec = spec or SPEC
-    if spec.stop_tokens:
-        tokenizer = processor.tokenizer
-        model.generation_config.eos_token_id = [
-            tokenizer.convert_tokens_to_ids(token) for token in spec.stop_tokens
-        ]
-        model.generation_config.pad_token_id = tokenizer.pad_token_id
-
-
-def load_model_and_processor(attn="sdpa"):
-    import transformers
-
-    major = int(transformers.__version__.split(".")[0])
-    if major != SPEC.transformers_major:
-        raise RuntimeError(
-            f"{PILOT_MODEL} runs on transformers {SPEC.transformers_major}.x; this environment has {transformers.__version__}"
-        )
-    precision = {"torch_dtype": torch.bfloat16} if major < 5 else {"dtype": torch.bfloat16}
-    processor = transformers.AutoProcessor.from_pretrained(MODEL_ID, revision=REVISION)
-    model = (
-        getattr(transformers, SPEC.model_class)
-        .from_pretrained(MODEL_ID, revision=REVISION, attn_implementation=attn, **precision)
-        .to("cuda")
-    )
-    fast_patch_embedding(model)
-    configure_generation(model, processor)
-    return model.eval(), processor
-
-
-def prepare_rows(processor, images, prefix=()):
-    messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": PROMPT}]}]
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True, **dict(SPEC.chat_options)
-    )
-    batch = processor(text=[text] * len(images), images=list(images), return_tensors="pt")
-    prompt_length = batch["input_ids"].shape[1]
-    if not (batch["input_ids"] == batch["input_ids"][0]).all():
-        raise ValueError(
-            "rows must share their prompt tokens: every image has to give the same number of image tokens"
-        )
-    if len(prefix):
-        add = torch.tensor([list(prefix)] * len(images), dtype=batch["input_ids"].dtype)
-        for key, value in list(batch.items()):
-            if key == "input_ids":
-                batch[key] = torch.cat([value, add], 1)
-            elif key == "attention_mask":
-                batch[key] = torch.cat([value, torch.ones_like(add, dtype=value.dtype)], 1)
-            elif torch.is_tensor(value) and value.dim() == 2 and value.shape == (len(images), prompt_length):
-                batch[key] = torch.cat([value, torch.zeros_like(add, dtype=value.dtype)], 1)
-    return batch, prompt_length
 
 
 def object_vocabulary(tokenizer, cache):

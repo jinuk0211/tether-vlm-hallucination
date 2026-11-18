@@ -19,7 +19,7 @@ def main():
 
     if args.command == "queue":
         todo = [
-            (m, t, RUNS / "throne_parts" / m, tether_settings("throne", m) if t == "tether" else None)
+            (m, t, RUNS / "throne_parts" / m, tether_settings(m) if t == "tether" else None)
             for m in MODELS
             for t in TAGS
         ]

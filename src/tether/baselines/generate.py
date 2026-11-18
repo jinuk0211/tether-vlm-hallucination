@@ -11,14 +11,13 @@ from tether.baselines.fp16 import MODULES, fp32_attention_scores
 from tether.models import MODELS, load, model_config
 from tether.utils import add_run_args, run_rows, seed_everything
 
-METHODS = ("base", "revis", "rudder", "grains", "vti", "vti-authors", "revis-official")
+METHODS = ("base", "revis", "rudder", "grains", "vti", "vti-authors")
 FP16 = ("grains", "vti-authors")
 STEER = {
     "revis": revis.steer,
     "grains": grains.steer,
     "vti": vti.steer,
     "vti-authors": vti.steer_authors,
-    "revis-official": revis.official_steer,
 }
 
 

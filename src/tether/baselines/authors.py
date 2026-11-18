@@ -59,12 +59,3 @@ def grains():
 def vti():
     sys.path.insert(0, str(UPSTREAM / "vti"))
     return importlib.import_module("vti_utils.utils"), importlib.import_module("vti_utils.llm_layers")
-
-
-@lru_cache(maxsize=None)
-def revis():
-    sys.path.insert(0, str(UPSTREAM / "revis"))
-    sys.modules.setdefault("qwen_vl_utils", types.SimpleNamespace(process_vision_info=None))
-    layers = importlib.import_module("steering_utils.llm_layers")
-    vectors = importlib.import_module("steering_utils.vector_calculator")
-    return layers, vectors

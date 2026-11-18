@@ -187,7 +187,8 @@ class TextStates:
 
     def __call__(self, **batch):
         inputs = {k: v for k, v in batch.items() if k != "labels"}
-        return self.adapter.model(**inputs, output_hidden_states=True, return_dict=True, use_cache=False)
+        inputs.update(output_hidden_states=True, return_dict=True, use_cache=False)
+        return self.adapter.model(**inputs)
 
 
 def demo_pairs(adapter, args, model, tokenizer, demos, question, model_is_llaval=True):
@@ -237,16 +238,15 @@ def author_demos(adapter, demos, trials):
         utils.get_prompts = saved
 
 
-def extract_authors(adapter, workdir):
+def extract_authors(adapter, workdir, whitespace):
     utils, _ = authors.vti()
     images, _ = author_demos(adapter, DEMOS, trials=50)
     visual, _ = utils.obtain_visual_vti(
         types.SimpleNamespace(vision_model=VisionStates(adapter)), images, rank=1
     )
     originals = install(adapter.vision_layers, visual[1:], AUTHOR_ALPHA, vision=True)
-    _, inputs = author_demos(
-        adapter, whitespace_demos(Path(workdir) / "vti_demos_whitespace.jsonl"), trials=1
-    )
+    demos = whitespace_demos(Path(workdir) / "vti_demos_whitespace.jsonl") if whitespace else DEMOS
+    _, inputs = author_demos(adapter, demos, trials=1)
     textual, _ = utils.obtain_textual_vti(TextStates(adapter), inputs, None, rank=1)
     for layer, mlp in zip(adapter.vision_layers, originals):
         layer.mlp = mlp

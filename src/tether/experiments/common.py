@@ -5,21 +5,15 @@ from pathlib import Path
 from tether.paths import CONFIGS, RUNS
 from tether.utils import read_jsonl, write_jsonl
 
-BASELINES = ("revis", "rudder", "grains", "vti", "vti-authors", "revis-official")
+BASELINES = ("revis", "rudder", "grains", "vti", "vti-authors")
 
 
-def tether_settings(table, model):
-    return json.loads((CONFIGS / "tether.json").read_text())[table][model]
+def tether_settings(model):
+    return json.loads((CONFIGS / "tether.json").read_text())[model]
 
 
 def setting_args(setting):
-    args = []
-    for k, v in setting.items():
-        if v is True:
-            args.append(f"--{k.replace('_', '-')}")
-        elif v is not False:
-            args += [f"--{k}", str(v)]
-    return " ".join(args)
+    return " ".join(f"--{k} {v}" for k, v in setting.items())
 
 
 def command(model, tag, data, output, start, end, setting=None):

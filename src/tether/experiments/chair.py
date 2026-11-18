@@ -6,16 +6,15 @@ from tether.paths import RUNS, SETS
 
 TABLE = {
     "qwen": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
-    "qwen3": ["base", "revis", "rudder", "grains", "vti", "m3id", "tether"],
+    "qwen3": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
     "gemma": ["base", "revis", "rudder", "grains", "vti", "m3id", "tether"],
 }
-DEV = {**TABLE, "qwen3": ["base", "revis-official", "rudder", "grains", "vti", "m3id", "tether"]}
 ABLATION = {"qwen": TABLE["qwen"], "gemma": TABLE["gemma"]}
 REMOVE = {"tether-nosteer": "alpha", "tether-nopen": "pen", "tether-nobelief": "lam"}
 
 
 def setting(model, tag):
-    s = dict(tether_settings("chair", model))
+    s = dict(tether_settings(model))
     if tag in REMOVE:
         s[REMOVE[tag]] = 0
     return s
@@ -24,7 +23,7 @@ def setting(model, tag):
 def units(table):
     if table == "ablation":
         return [(m, t) for m in ABLATION for t in REMOVE]
-    return [(m, t) for m, tags in (DEV if table == "dev" else TABLE).items() for t in tags]
+    return [(m, t) for m, tags in TABLE.items() for t in tags]
 
 
 def main():

@@ -286,7 +286,7 @@ def main(a):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--model", choices=["qwen", "gemma"], required=True)
+    p.add_argument("--model", choices=["qwen", "qwen3", "gemma"], required=True)
     p.add_argument("--output", type=Path, default=C.DECAY)
     p.add_argument("--start", type=int, default=0)
     p.add_argument("--end", type=int, default=500)
