@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
 *.egg-info/
-outputs/
-results/
+/data/
+/outputs/
+/upstream/
+/.venv*/

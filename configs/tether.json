@@ -1,0 +1,11 @@
+{
+  "chair": {
+    "qwen": {"layer": 16, "alpha": 2, "lam": 1, "pen": 1},
+    "qwen3": {"layer": 20, "alpha": 1, "lam": 1, "pen": 0.5},
+    "gemma": {"layer": 24, "alpha": 2, "lam": 0.5, "pen": 0.25}
+  },
+  "throne": {
+    "qwen": {"layer": 16, "alpha": 3, "lam": 2, "pen": 1, "no_color_words": true},
+    "gemma": {"layer": 24, "alpha": 3, "lam": 2, "pen": 1, "no_color_words": true}
+  }
+}

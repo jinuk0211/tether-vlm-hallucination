@@ -1,99 +1,121 @@
 # TETHER
 
-TETHER is a decoding-time method for object hallucination in VLM image captioning. The image's contribution to a
-caption fades as the caption gets longer; TETHER measures that decay offline (r(t), from the KL between predictions
-with the real and a gray image) and uses it to schedule three terms while decoding:
+Code for *TETHER: Steering Vision-Language Models Where the Image Is Read Less*.
+
+TETHER decodes every caption together with a gray-image copy that receives the same tokens. At each step it
 
 ```
-steering   h_real += α·s(t)·(h_real − h_gray)                at decoder layer L, decode steps, s(t) = 1 − r(t)
-belief     A(o) += r(t)·(log p_real(o) − log p_gray(o))       object tokens o in V_obj
-           logit(o) += λ·w(t)·clip(A(o) / Σr, −c, c)          objects not written yet, w(t) = 1 − r(t)
-penalty    logit(o) −= π·w(t)                                 objects not written yet
+steering   h_L += α·s(t)·(h_L − h̄_L)                      decoder layer L, decoding steps, s(t) = 1 − r(t)
+support    A(o) += r(t)·(log p(o) − log p̄(o))                object tokens o in V_obj
+correction z(o) += w(t)·(λ·clip(A(o) / Σr, −c, c) − π)        objects not written yet, w(t) = 1 − r(t)
 ```
 
-Each caption is decoded as a batch of two in lockstep (real image and gray image, the gray row is always fed the real
-row's token), so the evidence comes without an extra pass. α = λ = π = 0 is plain greedy decoding through the same path.
-
-The repository also has the baselines we compare against (REVIS, RUDDER, GrAInS, VTI), the evaluation code (CHAIR,
-POPE, THRONE) and the analyses of how the image's influence changes along a caption.
+where `h̄`, `p̄` come from the gray row and `r(t)` is the gray-image KL along the caption, normalized to 1 at the
+opening (measured once per model in the audit). With α = λ = π = 0 the same code path decodes Base.
 
 ## Layout
 
 ```
 src/tether/
-  models/       Hugging Face adapters (Qwen2.5-VL, Qwen3-VL, Gemma 4)
-  decoding/     TETHER decoders: vdd (main), vdd_vobj (V_obj read from a file); common (r(t) curve, rule for the object
-                vocabulary V_obj); vobj (writes the V_obj files, also the one without colour words used on THRONE)
-  baselines/    local (our REVIS and VTI), author_bridge / qwen_compat (calls into the authors' RUDDER and GrAInS),
-                vti_author, vti_ws, revis_official, direction extraction (grains_*, fit_qwen), generation workers, bench_*
-  eval/         CHAIR, POPE and THRONE scoring, paired image bootstrap
-  analysis/     visual_decay, reliance, read_gap, selfcheck, probe, logit_lens
-  data/         evaluation sets and images (CHAIR 500, CHAIR dev 100, THRONE 5,000, POPE)
-  experiments/  queues and joins of the individual experiments (ablation, CHAIR dev, THRONE)
-scripts/        run_queue.sh, visual_decay_run.sh, scorer environment setup
-configs/        model configurations
+  decode.py        TETHER (and Base) decoding
+  lockstep.py      real/contrast pair decoding shared by TETHER, VCD and M3ID
+  schedule.py      r(t) from the audit
+  vocab.py         object vocabulary V_obj
+  models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4
+  baselines/       generate.py (captions with any baseline), fit.py (directions), revis, rudder, grains, vti,
+                   contrastive (VCD, M3ID), authors (loads the released code), fp16
+  eval/            CHAIR with paired bootstrap, THRONE judging and table
+  data/            CHAIR test 500, CHAIR dev 100, THRONE 5,000, POPE, development pairs
+  experiments/     queues for each table, joins, case studies, trade-off figure
+  analysis/        Sec. 3 and the appendix audit: selfcheck, pope, decay, reliance, probe, lens, recheck, jacobian
+configs/           models, and the TETHER setting of each table (tether.json)
+scripts/           run_queue.sh, setup_scorers.sh
 ```
+
+Paths are relative to the repository root (`TETHER_ROOT` to change it): `data/` for images and sets, `outputs/` for
+everything a run writes, `upstream/` for the released code of the baselines and the scorers.
 
 ## Setup
 
 ```
-pip install -e .            # with the scorer dependencies: pip install -e ".[eval]"
-bash scripts/setup_scorers.sh   # THRONE environment and judges (flan-t5)
-python -m tether.upstream chair   # pinned checkout into upstream/chair (also: revis, rudder, grains, vti)
+pip install -e ".[eval,baselines,analysis]"
+python -m tether.upstream                 # pinned checkouts of RUDDER, GrAInS, VTI, REVIS, CHAIR, THRONE
+bash scripts/setup_scorers.sh             # NLTK data, THRONE environment and Flan-T5 judges
+python -m tether.data.sets                # images, annotations and all evaluation sets
+python -m tether.vocab                    # V_obj for each model
 ```
 
-The authors' code and the official scorers are not included; the modules expect local checkouts of these versions
-(paths at the top of each module):
+Commands are run with `python -m MODULE`. A queue file holds one `MODULE ARGS` per line and runs on one GPU with
+`bash scripts/run_queue.sh GPU QUEUE`. Decoders write `TAG-START-END.jsonl` and resume an unfinished file.
 
-| | pinned version |
+## Audit (Sec. 3)
+
+The audit reads the Base captions of the CHAIR test images, `outputs/runs/chair_test500/MODEL/base-0-500.jsonl`.
+
+```
+python -m tether.analysis.selfcheck.collect --model qwen          # Finding 1: Yes-No margin of every object
+python -m tether.analysis.selfcheck.analyze outputs/audit/selfcheck/qwen-base-rows.jsonl
+python -m tether.analysis.pope.collect --model qwen --mode pope   # POPE margin vs image-token probe
+python -m tether.analysis.pope.collect --model qwen --mode images
+python -m tether.analysis.pope.analyze
+python -m tether.analysis.decay.collect --model qwen              # Finding 2: kappa, kappa_blk, attention
+python -m tether.analysis.decay.analyze outputs/decay qwen        # also the summary that r(t) is read from
+python -m tether.analysis.reliance.collect --model qwen           # gradient x input
+python -m tether.analysis.reliance.analyze outputs/audit/reliance qwen
+python -m tether.analysis.lens.logit image --model qwen           # logit lens on image tokens and captions
+python -m tether.analysis.lens.logit text --model qwen
+python -m tether.analysis.lens.logit topk --model qwen
+python -m tether.analysis.recheck.tables qwen                     # Findings 3-4: position, support, ranking, co-occurrence
+python -m tether.analysis.recheck.support qwen
+python -m tether.analysis.recheck.ranking
+python -m tether.analysis.probe.collect --model qwen              # Finding 5: probe, real vs gray, interventions
+python -m tether.analysis.probe.collect --model qwen --all-images
+python -m tether.analysis.probe.foldwise qwen 20
+python -m tether.analysis.probe.intervention --model qwen --fit
+python -m tether.analysis.probe.intervention --model qwen
+python -m tether.analysis.probe.intervention --model qwen --summarize
+python -m tether.analysis.probe.attention --model qwen
+python -m tether.analysis.probe.attention --model qwen --summarize
+```
+
+`analysis/recheck/lens_*.py` and `hall_share_by_position.py` compute the remaining lens and position tables of the
+appendix from the same outputs. The Jacobian-lens pilot (Fig. 1 a5) needs the `jlens` package and a fitted lens:
+`analysis.jacobian.images` builds its image list and object masks, then `probe`, `summary`, `positions`, `layers`.
+
+## Experiments (Sec. 5)
+
+```
+python -m tether.baselines.fit --model qwen --method revis        # directions: revis, vti, grains (all models),
+                                                                  # vti-authors (Qwen2.5), revis-official (Qwen3)
+python -m tether.experiments.chair queue --table test --gpus 4    # CHAIR 500: Base, REVIS, RUDDER, GrAInS, VTI, M3ID, TETHER
+bash scripts/run_queue.sh 0 outputs/runs/queues/chair_test500-test-0.txt
+python -m tether.experiments.chair join --table test
+python -m tether.eval.chair data/sets/chair_test500.jsonl outputs/runs/chair_test500/qwen
+
+python -m tether.experiments.chair queue --table ablation         # -steering, -penalty, -belief (Qwen2.5, Gemma)
+python -m tether.experiments.chair queue --table dev              # CHAIR on the 100 development images
+
+python -m tether.experiments.throne queue --gpus 4                # THRONE: every row on all 5,000 images
+python -m tether.experiments.throne join
+python -m tether.experiments.throne judges --gpus 4               # Flan-T5 base, large, xl
+python -m tether.eval.throne table --qwen outputs/runs/throne/qwen --gemma outputs/runs/throne/gemma
+
+python -m tether.experiments.tradeoff                             # Fig. 3
+python -m tether.experiments.cases --selfcheck outputs/audit/selfcheck/qwen-base-rows.jsonl
+```
+
+The TETHER rows use the settings in `configs/tether.json`; THRONE uses V_obj without colour words
+(`--no-color-words`). VCD runs with `python -m tether.baselines.contrastive --method vcd`.
+
+## Released code
+
+| | |
 |---|---|
 | RUDDER | Akko000/RUDDER-Residual-Update-Directed-DEcoding-Regulation- `bd149d8` |
 | GrAInS | duykhuongnguyen/GrAInS `8ad78db` |
 | VTI | shengliu66/VTI `bb5dfee` |
 | REVIS | antgroup/Revis `75f4d29` |
-| CHAIR | Python 3 port, `4087a26` |
-| THRONE | amazon-science/THRONE `45badbb7` |
+| CHAIR | Maxlinn/CHAIR-metric-standalone `4087a26` |
+| THRONE | amazon-science/THRONE `45badbb` |
 
-Models: Qwen2.5-VL-7B-Instruct `cc59489`, Gemma 4 E4B-it `ee0ef60`, Qwen3-VL-8B-Instruct `0c351dd` (`configs/*.json`).
-Paths (data, model folders, caches) follow our server layout and are set at the top of each module.
-
-## Usage
-
-Every module runs with `python -m`. A setting tag `s{L}a{α}bl{λ}p{π}` stands for `--layer L --alpha α --lam λ --pen π`
-(`p05` = 0.5).
-
-```
-# evaluation sets: POPE and CHAIR 500, THRONE 5,000 (COCO val2017); object vocabulary V_obj
-python -m tether.data.benchmarks && python -m tether.data.test_sets && python -m tether.data.throne_full
-python -m tether.decoding.vobj
-
-# TETHER and the Base of the same code path on a caption set (resumes an unfinished file)
-python -m tether.decoding.vdd --model qwen --data SET.jsonl --output RUNDIR --tag s16a2bl1p05 \
-    --alpha 2 --layer 16 --lam 1 --pen 0.5
-python -m tether.decoding.vdd --model qwen --data SET.jsonl --output RUNDIR --tag base
-
-# a baseline
-python -m tether.baselines.bench_qwen --method rudder_clone --attn sdpa --set SET.jsonl --output RUNDIR
-
-# CHAIR for every complete run in RUNDIR against its 'base' run (paired bootstrap)
-python -m tether.eval.sets chair_test500 RUNDIR
-
-# THRONE on all 5,000 images, in five blocks of 1,000: decode and judge queues, one judge unit
-# (model, tag, block, flan-t5 judge), joined caption files, table
-python -m tether.experiments.throne queues
-python -m tether.eval.throne_judge 0 qwen cf_a3bl2p1 0 base
-python -m tether.experiments.throne join
-python -m tether.eval.throne
-
-# a queue of such commands on one GPU (one "MODULE ARGS..." per line)
-bash scripts/run_queue.sh 0 queue.txt
-```
-
-Every decoder and baseline runs the whole set by default. `--start A --end B` decodes rows A to B-1 into
-`TAG-A-B.jsonl`, so a set can be split over several GPUs; `python -m tether.experiments.join SET PARTS OUT TAG...`
-(run folder names) puts the pieces back into one `TAG-0-N.jsonl`, which is what the scorers read.
-
-`--attn sdpa` is the default for the decoders: with eager attention, bf16 Qwen2.5-VL starts repeating the token
-` addCriterion` in some captions.
-
-The result files and the run scripts of each experiment are on the `results` branch.
+Models: Qwen2.5-VL-7B-Instruct `cc59489`, Qwen3-VL-8B-Instruct `0c351dd`, Gemma 4 E4B-it `ee0ef60`.
