@@ -17,10 +17,9 @@ opening (measured once per model from teacher-forced Base captions). With α = �
 
 ```
 src/tether/
-  decode.py        TETHER (and Base) decoding
+  decode.py        TETHER (and Base) decoding, with the steering at any point of the decoder block
   lockstep.py      real/contrast pair decoding shared by TETHER, VCD and M3ID
   schedule.py      r(t): measured from the teacher-forced Base captions, read by decode.py
-  sites.py         the TETHER update at other points of the decoder block
   vocab.py         object vocabulary V_obj
   models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4
   baselines/       generate.py (captions with any baseline), fit.py (directions), revis, rudder, grains, vti,
@@ -76,8 +75,8 @@ Every TETHER row, on CHAIR and THRONE, uses the setting of its model in `configs
 
 ## Steering sites
 
-`python -m tether.sites` takes the arguments of `tether.decode` and applies the update
-`x_real += α·(1 − r(t))·(x_real − x_gray)` at the point given by `--site`:
+`tether.decode` applies the steering update `x_real += α·(1 − r(t))·(x_real − x_gray)` at the point given by
+`--site` (default `resid`, the TETHER rows of the paper):
 
 | site | point in decoder layer `--layer` |
 |---|---|
