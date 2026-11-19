@@ -7,7 +7,7 @@ import torch
 
 warnings.filterwarnings("ignore")
 from tether.analysis import common
-from tether.analysis.recheck.tables import BASE, LL, OUT, ci, strat
+from tether.analysis.tables.mentions import BASE, LL, OUT, ci, strat
 
 BAND = {"qwen": range(22, 28), "gemma": range(30, 42)}
 DB = [1, 5, 17, 65, 10**6]

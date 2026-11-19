@@ -27,7 +27,7 @@ src/tether/
   eval/            CHAIR with paired bootstrap, THRONE judging and table
   data/            CHAIR test 500, CHAIR dev 100, THRONE 5,000, POPE, development pairs
   experiments/     queues for each table, joins, case studies, trade-off figure
-  analysis/        Sec. 3 and the appendix audit: selfcheck, pope, decay, reliance, probe, lens, recheck, jacobian
+  analysis/        Sec. 3 and the appendix audit: selfcheck, pope, decay, reliance, probe, lens, tables, jacobian
 configs/           models, and the TETHER setting of each model (tether.json)
 scripts/           run_queue.sh, setup_scorers.sh
 ```
@@ -65,9 +65,6 @@ python -m tether.analysis.reliance.analyze outputs/audit/reliance qwen
 python -m tether.analysis.lens.logit image --model qwen           # logit lens on image tokens and captions
 python -m tether.analysis.lens.logit text --model qwen
 python -m tether.analysis.lens.logit topk --model qwen
-python -m tether.analysis.recheck.tables qwen                     # Findings 3-4: position, support, ranking, co-occurrence
-python -m tether.analysis.recheck.support qwen
-python -m tether.analysis.recheck.ranking
 python -m tether.analysis.probe.collect --model qwen              # Finding 5: probe, real vs gray, interventions
 python -m tether.analysis.probe.collect --model qwen --all-images
 python -m tether.analysis.probe.foldwise qwen 20
@@ -76,11 +73,19 @@ python -m tether.analysis.probe.intervention --model qwen
 python -m tether.analysis.probe.intervention --model qwen --summarize
 python -m tether.analysis.probe.attention --model qwen
 python -m tether.analysis.probe.attention --model qwen --summarize
+
+python -m tether.analysis.tables.mentions qwen                    # Findings 3-4: position, mention order, ranking, co-occurrence
+python -m tether.analysis.tables.support qwen                     # support e_t at first mentions
+python -m tether.analysis.tables.intervals                        # intervals of the lens, intervention and attention rows
+python -m tether.analysis.tables.lens_image                       # image-token lens AUROC
+python -m tether.analysis.tables.lens_top5                        # object word in the top five of an image patch
+python -m tether.analysis.tables.writing_step                     # lens at the step that writes the object
 ```
 
-`analysis/recheck/lens_*.py` and `hall_share_by_position.py` compute the remaining lens and position tables of the
-appendix from the same outputs. The Jacobian-lens pilot (Fig. 1 a5) needs the `jlens` package and a fitted lens:
-`analysis.jacobian.images` builds its image list and object masks, then `probe`, `summary`, `positions`, `layers`.
+The `tables` scripts read the saved outputs of the commands above; `mentions` and `support` take the model, the others
+run both models.
+The Jacobian-lens pilot (Fig. 1 a5) needs the `jlens` package and a fitted lens: `analysis.jacobian.images` builds its
+image list and object masks, then `probe`, `summary` and `positions`.
 
 ## Experiments (Sec. 5)
 

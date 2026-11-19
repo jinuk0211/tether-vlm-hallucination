@@ -14,7 +14,7 @@ RELIANCE = AUDIT / "reliance"
 PROBE = AUDIT / "probe"
 ATTENTION = AUDIT / "attention"
 LENS = AUDIT / "lens"
-RECHECK = AUDIT / "recheck"
+TABLES = AUDIT / "tables"
 JACOBIAN = AUDIT / "jacobian"
 __all__ = ["COCO", "DECAY", "mention_positions", "read", "scorer"]
 

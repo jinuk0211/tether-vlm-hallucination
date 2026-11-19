@@ -269,64 +269,6 @@ def text_mode(a):
     return {"records": recs, "n_layers": NL, "last_layer_max_logp_err": err}
 
 
-def detect_mode(a):
-    adapter, lens = load(a)
-
-    m = adapter.model
-    tok = adapter.processor.tokenizer
-    layers = adapter.layers
-    NL = len(layers)
-    res = C.Resid(layers)
-    dev = adapter.device
-    allnodes, ids = object_tokens(tok, C.scorer())
-    nodes = [n for n in allnodes if ids[n]]
-    N = len(nodes)
-    node_of = torch.full((m.get_output_embeddings().out_features,), N, device=dev)
-    for i, n in enumerate(nodes):
-        node_of[ids[n]] = i
-    img_id = adapter.image_token_id
-    lab = image_labels(a.model)
-    rows = C.captions(a.model)[a.start : a.end]
-    recs = []
-    err = 0.0
-    for n, r in enumerate(rows):
-        iid = r["metadata"]["image_id"]
-        b = adapter.prepare(r["image"], r["prompt"])
-        img = b["input_ids"][0] == img_id
-        P = int(img.sum())
-        with torch.no_grad():
-            res.on = True
-            try:
-                o = m(**b, use_cache=False, return_dict=True)
-            finally:
-                res.on = False
-            cnt = torch.zeros(NL + 1, len(KS), N, dtype=torch.int16)
-            for l, h in enumerate(res.h):
-                lg = lens(h[img])
-                if l == NL:
-                    err = max(err, float((lg.softmax(-1) - o.logits[0, img].float().softmax(-1)).abs().max()))
-                own = node_of[lg.topk(max(KS), -1).indices]
-                for ki, k in enumerate(KS):
-                    hit = torch.zeros(P, N + 1, dtype=torch.bool, device=dev)
-                    hit.scatter_(1, own[:, :k], True)
-                    cnt[l, ki] = hit[:, :N].sum(0).short().cpu()
-                del lg, own
-            del o
-        res.h = [None] * (NL + 1)
-        recs.append({"id": r["id"], "image_id": iid, "labels": lab(iid), "n_image_tokens": P, "count": cnt})
-        if dev.type == "cuda":
-            torch.cuda.empty_cache()
-        assert err < 0.02, f"lens at the last layer differs from the model output by {err}"
-    return {
-        "records": recs,
-        "nodes": nodes,
-        "token_ids": {n: ids[n] for n in nodes},
-        "n_layers": NL,
-        "ks": KS,
-        "last_layer_max_prob_err": err,
-    }
-
-
 def topk_mode(a):
     adapter, lens = load(a)
 
@@ -671,98 +613,6 @@ def within_diff(x, c, nd, a, b, min_each=5):
     return (float(np.mean(d)) if d else None), len(d)
 
 
-def detect_analyze(a):
-    D = torch.load(a.output / f"{a.model}-detect-0-500.pt", weights_only=False)
-    nodes = D["nodes"]
-    NL = D["n_layers"]
-    recs = D["records"]
-    ids = D["token_ids"]
-    C = np.stack([r["count"].numpy() for r in recs]).transpose(0, 3, 1, 2).reshape(-1, NL + 1, len(KS))
-    nd = np.array([n for r in recs for n in nodes])
-    c = np.array([object_class(n, r["labels"]) or "other" for r in recs for n in nodes])
-    pairs = (("correct", "hallucinated"), ("missed", "absent"), ("hallucinated", "absent"))
-    out = {
-        "model": a.model,
-        "images": len(recs),
-        "objects": len(nodes),
-        "ks": list(KS),
-        "class_counts": {k: int((c == k).sum()) for k in CLASSES},
-        "image_tokens": {},
-        "caption_positions": {},
-    }
-    for ki, k in enumerate(KS):
-        x = C[:, :, ki] > 0
-        out["image_tokens"][f"top{k}"] = {
-            "rate": {cl: x[c == cl].mean(0).tolist() for cl in CLASSES},
-            "patches_when_detected": {
-                cl: [
-                    float(C[:, l, ki][(c == cl) & x[:, l]].mean()) if ((c == cl) & x[:, l]).any() else None
-                    for l in range(NL + 1)
-                ]
-                for cl in CLASSES
-            },
-            "within_object": {
-                f"{p}-{q}": [within_diff(x[:, l].astype(float), c, nd, p, q)[0] for l in range(NL + 1)]
-                for p, q in pairs
-            },
-            "objects_used": {
-                f"{p}-{q}": within_diff(x[:, NL].astype(float), c, nd, p, q)[1] for p, q in pairs
-            },
-        }
-    T = torch.load(a.output / f"{a.model}-text-0-500.pt", weights_only=False)["records"]
-    lab = {r["image_id"]: r["labels"] for r in recs}
-    rows = []
-    for r in T:
-        t1 = r["top1"].numpy()
-        first = {}
-        for x in r["mentions"]:
-            if x["first"]:
-                first[x["node"]] = x["t"]
-        for n in nodes:
-            cl = object_class(n, lab[r["image_id"]])
-            if cl is None:
-                continue
-            end = first.get(n, r["T"])
-            hit = np.isin(t1[:, :end], ids[n]).any(1) if end > 0 else np.zeros(NL + 1, bool)
-            rows.append((cl, n, hit))
-    cc = np.array([x[0] for x in rows])
-    nn = np.array([x[1] for x in rows])
-    H = np.stack([x[2] for x in rows]).astype(float)
-    out["caption_positions"] = {
-        "note": "lens top-1 at any caption position; correct/hallucinated objects only before their first mention, missed/absent over the whole caption",
-        "rate": {cl: H[cc == cl].mean(0).tolist() for cl in CLASSES},
-        "within_object": {
-            f"{p}-{q}": [within_diff(H[:, l], cc, nn, p, q)[0] for l in range(NL + 1)]
-            for p, q in (("missed", "absent"), ("correct", "hallucinated"))
-        },
-    }
-    p = a.output / f"{a.model}-detect-summary.json"
-    p.write_text(json.dumps(out, indent=1))
-    show = sorted({round(f * NL) for f in (0, 0.25, 0.5, 0.6, 0.75, 0.85, 0.9, 0.95, 1.0)})
-    line = (
-        lambda v, l: f"  L{l:2d} "
-        + " ".join(f"{cl[:4]} {100*v['rate'][cl][l]:5.1f}%" for cl in CLASSES)
-        + "  within: "
-        + " ".join(
-            f"{q} {'n/a' if w[l] is None else f'{100*w[l]:+.1f}'}" for q, w in v["within_object"].items()
-        )
-    )
-    print(
-        f"== {a.model}: {len(recs)} images, {len(nodes)} objects; rows: {out['class_counts']}; last-layer check {D['last_layer_max_prob_err']:.4f}"
-    )
-    for k in KS:
-        v = out["image_tokens"][f"top{k}"]
-        print(f" image tokens, word in top-{k} of any patch")
-        for l in show:
-            print(line(v, l))
-        print("   objects used", v["objects_used"])
-    v = out["caption_positions"]
-    print(" caption positions, word is lens top-1 somewhere")
-    for l in show:
-        print(line(v, l))
-    print("wrote", p)
-
-
 def topk_analyze(a):
     D = [
         torch.load(f, weights_only=False) for f in sorted(glob.glob(str(a.output / f"{a.model}-topk-*-*.pt")))
@@ -911,71 +761,6 @@ def topk_analyze(a):
     print("wrote", p)
 
 
-def report(path, model, im, tx):
-    import html
-
-    from tether.analysis.decay.plot import CSS, line_chart
-
-    nn = lambda v: [None if x is None or (isinstance(x, float) and math.isnan(x)) else x for x in v]
-    cards = []
-    if im:
-        x = [str(l) for l in range(im["n_layers"] + 1)]
-        for t, v in im["tasks"].items():
-            s = [(f"{k} pooled", nn(v[k]["pooled"]), None) for k in ("max", "top5mean")] + [
-                ("max within object", nn(v["max"]["within_object"]), None)
-            ]
-            cards.append(
-                line_chart(
-                    f"Image-token lens: {t}",
-                    f"AUROC per layer; best {v['max']['best_pooled']:.3f} at layer {v['max']['best_layer']}",
-                    x,
-                    s,
-                    ("layer", "AUROC"),
-                )
-            )
-        cards.append(
-            line_chart(
-                "Image-token confidence vs question margin",
-                "Spearman per layer (hallucinated / correct / missed objects)",
-                x,
-                [(k, nn(v), None) for k, v in im["spearman_with_question_margin"].items()],
-                ("layer", "Spearman"),
-                zero=True,
-            )
-        )
-    if tx:
-        x = [str(l) for l in range(tx["n_layers"] + 1)]
-        bp = tx["by_position"]
-        for key, name in (("top1", "Written token is top-1"), ("kl", "KL from the final layer")):
-            cards.append(
-                line_chart(
-                    name,
-                    "caption-position lens, first vs last position bins",
-                    x,
-                    [
-                        (tx["bins"][i], nn([row[i] for row in bp[key]]), None)
-                        for i in (0, 3, 6, len(tx["bins"]) - 1)
-                    ],
-                    ("layer", key),
-                )
-            )
-        mt = tx["mentions"]
-        cards.append(
-            line_chart(
-                "Object mentions: written object is top-1",
-                "first mention of each object",
-                x,
-                [(k, v, None) for k, v in mt["top1_rate_by_layer"].items()],
-                ("layer", "top-1 rate"),
-            )
-        )
-    path.write_text(
-        f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>Logit lens: {html.escape(model)}</title><style>{CSS}</style></head>'
-        f'<body class="viz-root"><h1>Logit lens: {html.escape(model)}</h1><div class="row">{"".join(cards)}</div></body></html>',
-        encoding="utf-8",
-    )
-
-
 def analyze(a):
     out = {"model": a.model}
     im = tx = None
@@ -990,7 +775,6 @@ def analyze(a):
     assert fi or ft, "nothing to analyze"
     p = a.output / f"{a.model}-lens-summary.json"
     p.write_text(json.dumps(out, indent=1))
-    report(a.output / f"{a.model}-lens-report.html", a.model, im, tx)
     if im:
         print(
             f"== image-token lens, {a.model}: {im['images']} images, last-layer check {im['last_layer_max_prob_err']:.4f}"
@@ -1026,9 +810,7 @@ def analyze(a):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument(
-        "mode", choices=["image", "text", "analyze", "detect", "detect-analyze", "topk", "topk-analyze"]
-    )
+    p.add_argument("mode", choices=["image", "text", "analyze", "topk", "topk-analyze"])
     p.add_argument("--model", choices=["qwen", "gemma"], required=True)
     p.add_argument("--output", type=Path, default=C.LENS)
     p.add_argument("--start", type=int, default=0)
@@ -1037,9 +819,7 @@ if __name__ == "__main__":
     a.output.mkdir(parents=True, exist_ok=True)
     if a.mode == "analyze":
         analyze(a)
-    elif a.mode == "detect-analyze":
-        detect_analyze(a)
     elif a.mode == "topk-analyze":
         topk_analyze(a)
     else:
-        run(a, {"image": image_mode, "text": text_mode, "detect": detect_mode, "topk": topk_mode}[a.mode])
+        run(a, {"image": image_mode, "text": text_mode, "topk": topk_mode}[a.mode])

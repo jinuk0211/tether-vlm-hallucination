@@ -8,7 +8,7 @@ import torch
 
 warnings.filterwarnings("ignore")
 from tether.analysis import common as C
-from tether.analysis.recheck.tables import BASE, LL, OUT, PB, auroc, ci, strat
+from tether.analysis.tables.mentions import BASE, LL, OUT, PB, auroc, ci, strat
 
 ANN = C.COCO / "annotations/instances_train2014.json"
 sc = C.scorer()

@@ -9,7 +9,7 @@ from tether.analysis import common as C
 from tether.analysis.probe import analyze as V
 
 O = C.PROBE
-OUT = C.RECHECK
+OUT = C.TABLES
 OUT.mkdir(parents=True, exist_ok=True)
 BASE = {m: C.captions_path(m) for m in ("qwen", "gemma")}
 m = sys.argv[1]

@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 from tether.analysis import common as C
 
 LL = C.LENS
-OUT = C.RECHECK
+OUT = C.TABLES
 OUT.mkdir(parents=True, exist_ok=True)
 BASE = {m: C.captions_path(m) for m in ("qwen", "gemma")}
 PB = [0, 32, 64, 96, 128, 192, 256, 384, 513]
