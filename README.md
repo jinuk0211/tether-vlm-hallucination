@@ -20,6 +20,7 @@ src/tether/
   decode.py        TETHER (and Base) decoding
   lockstep.py      real/contrast pair decoding shared by TETHER, VCD and M3ID
   schedule.py      r(t): measured from the teacher-forced Base captions, read by decode.py
+  sites.py         the TETHER update at other points of the decoder block
   vocab.py         object vocabulary V_obj
   models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4
   baselines/       generate.py (captions with any baseline), fit.py (directions), revis, rudder, grains, vti,
@@ -72,6 +73,25 @@ python -m tether.eval.throne table --qwen outputs/runs/throne/qwen --gemma outpu
 
 Every TETHER row, on CHAIR and THRONE, uses the setting of its model in `configs/tether.json`. VCD runs with
 `python -m tether.baselines.contrastive --method vcd`.
+
+## Steering sites
+
+`python -m tether.sites` takes the arguments of `tether.decode` and applies the update
+`x_real += α·(1 − r(t))·(x_real − x_gray)` at the point given by `--site`:
+
+| site | point in decoder layer `--layer` |
+|---|---|
+| `resid` | layer output (TETHER) |
+| `attn`, `mlp` | what attention and the MLP add to the residual stream (after the post-norms in Gemma) |
+| `ple` | Gemma's per-layer input block |
+| `heads` | input of `o_proj`, one unit per head |
+| `q`, `k`, `v` | queries, keys, values (after `q_norm`, `k_norm`, `v_norm` where the model has them), one unit per head |
+| `gate`, `up`, `act` | `g = W_gate x`, `u = W_up x` and `a = act(g) ⊙ u`, the input of `down_proj` |
+
+`--units` limits the update to the given heads or neurons, and `--topk K` to the K units with the largest real–gray
+difference at each step. `--layer` takes several layers. In Qwen2.5-VL and Qwen3-VL, `o_proj` and `down_proj` are
+linear without bias, so `heads` and `act` over all units equal `attn` and `mlp`. Gemma 4 E4B has keys and values
+only in layers 1–24; layers 25–42 reuse those of layers 23 and 24.
 
 ## Released code
 
