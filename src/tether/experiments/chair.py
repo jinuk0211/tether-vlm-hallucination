@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from tether.experiments.common import join, queue, tether_settings, write_queues
+from tether.experiments.common import TETHER, join, queue, write_queues
 from tether.paths import RUNS, SETS
 
 TABLE = {
@@ -14,7 +14,7 @@ REMOVE = {"tether-nosteer": "alpha", "tether-nopen": "pen", "tether-nobelief": "
 
 
 def setting(model, tag):
-    s = dict(tether_settings(model))
+    s = dict(TETHER[model])
     if tag in REMOVE:
         s[REMOVE[tag]] = 0
     return s

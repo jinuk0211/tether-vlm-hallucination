@@ -21,14 +21,13 @@ src/tether/
   lockstep.py      real/contrast pair decoding shared by TETHER, VCD and M3ID
   schedule.py      r(t) of each model
   vocab.py         object vocabulary V_obj
-  models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4
+  models.py        Qwen2.5-VL, Qwen3-VL, Gemma 4: checkpoints, revisions and loading
   baselines/       generate.py (captions with any baseline), fit.py (directions), revis, rudder, grains, vti,
                    contrastive (VCD, M3ID), authors (loads the released code), fp16
   eval/            CHAIR with paired bootstrap, THRONE judging and table
   data/            CHAIR test 500, CHAIR dev 100, THRONE 5,000, POPE, development pairs
   experiments/     queues for each table, joins, case studies, trade-off figure
   analysis/        Sec. 3 and the appendix audit: selfcheck, pope, decay, reliance, probe, lens, tables, jacobian
-configs/           models, and the TETHER setting of each model (tether.json)
 scripts/           run_queue.sh, setup_scorers.sh
 ```
 
@@ -112,8 +111,8 @@ python -m tether.experiments.tradeoff                             # Fig. 3
 python -m tether.experiments.cases --selfcheck outputs/audit/selfcheck/qwen-base-rows.jsonl
 ```
 
-Every TETHER row, on CHAIR and THRONE, uses the setting of its model in `configs/tether.json`. VCD runs with
-`python -m tether.baselines.contrastive --method vcd`.
+Every TETHER row, on CHAIR and THRONE, uses the setting (L, α, λ, π) of its model in `TETHER` of
+`experiments/common.py`. VCD runs with `python -m tether.baselines.contrastive --method vcd`.
 
 ## Steering sites
 

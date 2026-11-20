@@ -8,7 +8,6 @@ SETS = DATA / "sets"
 OUT = ROOT / "outputs"
 RUNS = OUT / "runs"
 UPSTREAM = ROOT / "upstream"
-CONFIGS = ROOT / "configs"
 
 GRAY = OUT / "gray448.png"
 VOBJ = OUT / "vobj"

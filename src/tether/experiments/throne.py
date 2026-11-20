@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from tether.experiments.common import join, queue, tether_settings, write_queues
+from tether.experiments.common import TETHER, join, queue, write_queues
 from tether.paths import RUNS, SETS
 
 MODELS = ("qwen", "gemma")
@@ -19,7 +19,7 @@ def main():
 
     if args.command == "queue":
         todo = [
-            (m, t, RUNS / "throne_parts" / m, tether_settings(m) if t == "tether" else None)
+            (m, t, RUNS / "throne_parts" / m, TETHER[m] if t == "tether" else None)
             for m in MODELS
             for t in TAGS
         ]

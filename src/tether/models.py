@@ -1,16 +1,28 @@
-import json
-
 import torch
 from PIL import Image, ImageOps
 
-from tether.paths import CONFIGS
-
-MODELS = ("qwen", "qwen3", "gemma")
+CONFIGS = {
+    "qwen": {
+        "family": "qwen2_5_vl",
+        "checkpoint": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "revision": "cc594898137f460bfe9f0759e9844b3ce807cfb5",
+        "attn": "sdpa",
+    },
+    "qwen3": {
+        "family": "qwen3_vl",
+        "checkpoint": "Qwen/Qwen3-VL-8B-Instruct",
+        "revision": "0c351dd01ed87e9c1b53cbc748cba10e6187ff3b",
+        "attn": "sdpa",
+    },
+    "gemma": {
+        "family": "gemma4",
+        "checkpoint": "google/gemma-4-E4B-it",
+        "revision": "ee0ef6023621cff504d758262d4e04895a5af4a2",
+        "attn": "eager",
+    },
+}
+MODELS = tuple(CONFIGS)
 DTYPES = {"float32": torch.float32, "float16": torch.float16, "bfloat16": torch.bfloat16}
-
-
-def model_config(name):
-    return json.loads((CONFIGS / f"{name}.json").read_text())
 
 
 class Adapter:
@@ -103,7 +115,7 @@ def load(name, dtype="bfloat16", attn=None, device="cuda", device_map=None):
         "qwen3_vl": Qwen3VLForConditionalGeneration,
         "gemma4": Gemma4ForConditionalGeneration,
     }
-    config = model_config(name)
+    config = CONFIGS[name]
     kwargs = {"revision": config["revision"]}
     processor = AutoProcessor.from_pretrained(config["checkpoint"], **kwargs)
     model = classes[config["family"]].from_pretrained(
@@ -115,4 +127,4 @@ def load(name, dtype="bfloat16", attn=None, device="cuda", device_map=None):
     )
     if device_map is None:
         model = model.to(device)
-    return Adapter(model, processor, config["image_size"])
+    return Adapter(model, processor)

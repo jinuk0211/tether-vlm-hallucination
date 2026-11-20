@@ -8,7 +8,7 @@ import torch
 from tether.baselines import grains, revis, rudder, vti
 from tether.baselines.fit import direction_path
 from tether.baselines.fp16 import MODULES, fp32_attention_scores
-from tether.models import MODELS, load, model_config
+from tether.models import CONFIGS, MODELS, load
 from tether.utils import add_run_args, run_rows, seed_everything
 
 METHODS = ("base", "revis", "rudder", "grains", "vti", "vti-authors")
@@ -31,7 +31,7 @@ def main():
 
     refs, path = run_rows(args.data, args.output, args.method, args.start, args.end)
     fp16 = args.method in FP16
-    family = model_config(args.model)["family"]
+    family = CONFIGS[args.model]["family"]
     with ExitStack() as stack:
         if fp16 and family in MODULES:
             stack.enter_context(fp32_attention_scores(family))

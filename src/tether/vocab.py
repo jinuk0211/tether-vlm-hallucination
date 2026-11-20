@@ -111,14 +111,14 @@ def load_vobj(model):
 def main():
     from transformers import AutoProcessor
 
-    from tether.models import MODELS, model_config
+    from tether.models import CONFIGS, MODELS
 
     p = argparse.ArgumentParser()
     p.add_argument("--models", nargs="+", default=list(MODELS))
     args = p.parse_args()
     VOBJ.mkdir(parents=True, exist_ok=True)
     for model in args.models:
-        config = model_config(model)
+        config = CONFIGS[model]
         tok = AutoProcessor.from_pretrained(config["checkpoint"], revision=config["revision"]).tokenizer
         ids = object_tokens(tok)
         vobj_path(model).write_text(json.dumps(ids))
