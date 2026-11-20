@@ -22,11 +22,25 @@ class Adapter:
         self.device = next(model.parameters()).device
         self.dtype = next(model.parameters()).dtype
         self.model_type = model.config.model_type
-        self.layers = model.model.language_model.layers
+        lm = model.model.language_model
+        self.layers = lm.layers
+        self.norm = lm.norm
         if self.model_type == "gemma4":
             self.vision_layers = model.model.vision_tower.encoder.layers
         else:
             self.vision_layers = model.model.visual.blocks
+        text_config = getattr(model.config, "text_config", model.config)
+        self.hidden_size = text_config.hidden_size
+        self.image_token_id = getattr(model.config, "image_token_id", None)
+        if self.image_token_id is None:
+            self.image_token_id = model.config.image_token_index
+        self.yes_id = self.token_id("Yes")
+        self.no_id = self.token_id("No")
+
+    def token_id(self, text):
+        ids = self.tokenizer.encode(text, add_special_tokens=False)
+        assert len(ids) == 1, (text, ids)
+        return ids[0]
 
     def load_image(self, path):
         with Image.open(path) as f:

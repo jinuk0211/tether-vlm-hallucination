@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 eval = ["nltk>=3.9,<4", "pycocotools>=2.0.8", "PatternLite==3.6", "pyyaml"]
 baselines = ["captum", "scikit-learn", "pandas", "shortuuid", "tqdm", "requests"]
+analysis = ["scikit-learn", "matplotlib"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

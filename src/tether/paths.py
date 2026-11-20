@@ -12,6 +12,6 @@ CONFIGS = ROOT / "configs"
 
 GRAY = OUT / "gray448.png"
 VOBJ = OUT / "vobj"
-SCHEDULE = OUT / "schedule"
+DECAY = OUT / "decay"
 DIRECTIONS = OUT / "directions"
 JUDGES = OUT / "judges"

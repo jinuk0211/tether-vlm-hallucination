@@ -5,10 +5,11 @@ from tether.experiments.common import join, queue, tether_settings, write_queues
 from tether.paths import RUNS, SETS
 
 TABLE = {
-    "qwen": ["revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
-    "qwen3": ["revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
-    "gemma": ["revis", "rudder", "grains", "vti", "m3id", "tether"],
+    "qwen": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
+    "qwen3": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
+    "gemma": ["base", "revis", "rudder", "grains", "vti", "m3id", "tether"],
 }
+ABLATION = {"qwen": TABLE["qwen"], "gemma": TABLE["gemma"]}
 REMOVE = {"tether-nosteer": "alpha", "tether-nopen": "pen", "tether-nobelief": "lam"}
 
 
@@ -20,19 +21,15 @@ def setting(model, tag):
 
 
 def units(table):
-    if table == "base":
-        return [(m, "base") for m in TABLE]
     if table == "ablation":
-        return [(m, t) for m in ("qwen", "gemma") for t in REMOVE]
-    if table == "dev":
-        return [(m, t) for m, tags in TABLE.items() for t in ["base", *tags]]
+        return [(m, t) for m in ABLATION for t in REMOVE]
     return [(m, t) for m, tags in TABLE.items() for t in tags]
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("command", choices=["queue", "join"])
-    p.add_argument("--table", choices=["base", "test", "dev", "ablation"], default="test")
+    p.add_argument("--table", choices=["test", "dev", "ablation"], default="test")
     p.add_argument("--gpus", type=int, default=1)
     p.add_argument("--chunk", type=int, default=50)
     args = p.parse_args()

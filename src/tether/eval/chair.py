@@ -44,6 +44,27 @@ def sentences(evaluator, refs, captions):
     return out
 
 
+def mention_positions(tokenizer, ids, evaluator):
+    import nltk
+
+    text = tokenizer.decode(ids, skip_special_tokens=True)
+    low = text.lower()
+    offsets, p = [], 0
+    for w in nltk.word_tokenize(low):
+        q = low.find(w, p)
+        q = p if q < 0 else q
+        offsets.append(q)
+        p = q + len(w)
+    words, nodes, idxs, _ = evaluator.caption_to_words(text)
+    ends = [0] + [len(tokenizer.decode(ids[: i + 1], skip_special_tokens=True)) for i in range(len(ids))]
+    out = []
+    for node, word, k in zip(nodes, words, idxs):
+        c = offsets[k] if k < len(offsets) else len(text)
+        t = next((i for i in range(len(ids)) if ends[i] <= c < ends[i + 1]), len(ids) - 1)
+        out.append((node, word, t))
+    return out
+
+
 def score(evaluator, refs, runs, resamples=10000):
     ids = [r["metadata"]["image_id"] for r in refs]
     results, per = {}, {}

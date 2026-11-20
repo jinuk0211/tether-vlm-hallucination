@@ -9,6 +9,7 @@ from pathlib import Path
 from tether.paths import COCO, DATA, SETS
 from tether.utils import write_jsonl
 
+POPE = "https://raw.githubusercontent.com/RUCAIBox/POPE/08d957b917e5a378a2f99d35b6293c536a66298b/output/coco"
 COCO_URL = "http://images.cocodataset.org"
 COCO128 = "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip"
 COCO128_NAMES = (
@@ -116,12 +117,58 @@ def chair_test(dev_ids):
     )
 
 
-def chair_dev():
+def pope():
+    rows = [
+        json.loads(l)
+        for l in download(
+            f"{POPE}/coco_pope_adversarial.json", DATA / "pope/coco_pope_adversarial.json"
+        ).open()
+        if l.strip()
+    ]
+    download_images("val2014", sorted({r["image"] for r in rows}))
+    write_jsonl(
+        SETS / "pope_adversarial.jsonl",
+        [
+            {
+                "id": f"pope:adversarial:{r['question_id']}",
+                "image": str(COCO / "val2014" / r["image"]),
+                "prompt": r["text"] + "\nPlease answer yes or no.",
+                "label": r["label"],
+                "max_new_tokens": 128,
+                "metadata": {
+                    "question_id": r["question_id"],
+                    "image_id": int(Path(r["image"]).stem.rsplit("_", 1)[-1]),
+                },
+            }
+            for r in rows
+        ],
+    )
+
+
+def probe():
     train = json.loads((annotations(2014) / "instances_train2014.json").read_text())
+    cats = sorted(train["categories"], key=lambda c: c["id"])
+    index = {c["id"]: i for i, c in enumerate(cats)}
+    labels = {}
+    for a in train["annotations"]:
+        labels.setdefault(a["image_id"], set()).add(index[a["category_id"]])
     images = sorted(train["images"], key=lambda r: r["id"])
     random.Random(42).shuffle(images)
-    chosen = images[:100]
+    chosen = images[:5000]
     download_images("train2014", [r["file_name"] for r in chosen])
+    write_jsonl(
+        SETS / "probe5000.jsonl",
+        [
+            {
+                "id": f"coco_train:{r['id']}",
+                "image_id": r["id"],
+                "image": str(COCO / "train2014" / r["file_name"]),
+                "objects": sorted(labels.get(r["id"], ())),
+            }
+            for r in chosen
+        ],
+    )
+    (SETS / "coco_categories.json").write_text(json.dumps([c["name"] for c in cats]))
     write_jsonl(
         SETS / "chair_dev100.jsonl",
         [
@@ -132,7 +179,7 @@ def chair_dev():
                 "max_new_tokens": 512,
                 "metadata": {"image_id": r["id"]},
             }
-            for r in chosen
+            for r in chosen[:100]
         ],
     )
 
@@ -158,7 +205,7 @@ def throne():
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("sets", nargs="*", default=["dev", "chair", "chair_dev", "throne"])
+    p.add_argument("sets", nargs="*", default=["dev", "chair", "pope", "probe", "throne"])
     args = p.parse_args()
     dev_ids = dev_pairs()
     for name in args.sets:
