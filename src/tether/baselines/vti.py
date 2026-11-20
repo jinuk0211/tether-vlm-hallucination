@@ -7,10 +7,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image, ImageOps
 
 from tether.baselines import authors
-from tether.baselines.common import capture, output_tensor, steer_last_token, with_output
+from tether.baselines.common import capture
 from tether.paths import COCO, UPSTREAM
 
 ALPHA = 0.5
@@ -83,21 +84,23 @@ def extract(adapter, fit):
     }
 
 
+def mix(h, d, alpha):
+    x = h.float()
+    y = F.normalize(F.normalize(x, dim=-1) + 0.1 * alpha * F.normalize(d.to(x), dim=-1), dim=-1)
+    return (y * x.norm(dim=-1, keepdim=True)).to(h.dtype)
+
+
 @contextmanager
 def steer(adapter, direction):
     with ExitStack() as stack:
-        for i, vector in direction["textual"].items():
-            vector = vector.to(adapter.device)
-            handle = steer_last_token(adapter.layers[i], lambda h, v=vector: h + ALPHA * v.to(h))
-            stack.callback(handle.remove)
-        for i, vector in direction["visual"].items():
-            vector = vector.to(adapter.device)
-
-            def hook(module, args, output, v=vector):
-                h = output_tensor(output)
-                return with_output(output, h + ALPHA * v.to(h))
-
-            stack.callback(adapter.vision_layers[i].register_forward_hook(hook).remove)
+        for layers, vectors in (
+            (adapter.layers, direction["textual"]),
+            (adapter.vision_layers, direction["visual"]),
+        ):
+            for i, d in vectors.items():
+                d = d.to(adapter.device)
+                hook = layers[i].mlp.register_forward_hook(lambda m, a, out, d=d: mix(out, d, ALPHA))
+                stack.callback(hook.remove)
         yield
 
 
@@ -238,16 +241,25 @@ def author_demos(adapter, demos, trials):
         utils.get_prompts = saved
 
 
+def per_layer_pc1(states, plus, minus):
+    return torch.stack(
+        [
+            principal_direction(torch.stack([s[plus][i] - s[minus][i] for s in states]))
+            for i in range(len(states[0][0]))
+        ]
+    )
+
+
 def extract_authors(adapter, workdir, whitespace):
     utils, _ = authors.vti()
     images, _ = author_demos(adapter, DEMOS, trials=50)
-    visual, _ = utils.obtain_visual_vti(
-        types.SimpleNamespace(vision_model=VisionStates(adapter)), images, rank=1
-    )
+    states = utils.get_visual_hiddenstates(types.SimpleNamespace(vision_model=VisionStates(adapter)), images)
+    visual = per_layer_pc1(states, 0, 1)
+    del states
     originals = install(adapter.vision_layers, visual[1:], AUTHOR_ALPHA, vision=True)
     demos = whitespace_demos(Path(workdir) / "vti_demos_whitespace.jsonl") if whitespace else DEMOS
     _, inputs = author_demos(adapter, demos, trials=1)
-    textual, _ = utils.obtain_textual_vti(TextStates(adapter), inputs, None, rank=1)
+    textual = per_layer_pc1(utils.get_hiddenstates(TextStates(adapter), inputs, None), 1, 0)
     for layer, mlp in zip(adapter.vision_layers, originals):
         layer.mlp = mlp
     return {"visual": visual, "textual": textual}

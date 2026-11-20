@@ -8,7 +8,7 @@ from tether.models import CONFIGS, MODELS, load
 from tether.paths import DIRECTIONS, SETS
 from tether.utils import read_jsonl, seed_everything
 
-METHODS = ("revis", "vti", "grains", "vti-authors")
+METHODS = ("revis", "vti", "grains", "vti-authors", "vti-released")
 
 
 def direction_path(model, method):
@@ -30,11 +30,12 @@ def main():
     if args.method == "grains":
         adapter = load(args.model, dtype="float32", attn="eager", device_map=args.device_map)
         direction = grains.extract(adapter, (fit + calibration)[:50])
-    elif args.method == "vti-authors":
+    elif args.method in ("vti-authors", "vti-released"):
         vti.download_demo_images()
         with fp32_attention_scores(CONFIGS[args.model]["family"]):
             adapter = load(args.model, dtype="float16", attn="eager")
-            direction = vti.extract_authors(adapter, DIRECTIONS, whitespace=args.model == "qwen")
+            whitespace = args.method == "vti-authors" and args.model == "qwen"
+            direction = vti.extract_authors(adapter, DIRECTIONS, whitespace=whitespace)
     elif args.method == "revis":
         adapter = load(args.model, attn="eager")
         direction = revis.extract(adapter, fit, calibration)

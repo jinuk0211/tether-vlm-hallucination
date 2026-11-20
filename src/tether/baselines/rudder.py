@@ -1,49 +1,47 @@
 from contextlib import contextmanager
 
-import torch
+import torch.nn.functional as F
 
-from tether.baselines import authors
+from tether.baselines.common import output_tensor, with_output
 
 LAYER = 25
 ALPHA = 5.0
+K = 5.0
+C = 1.0
+CLIP = (0.05, 1.0)
 
 
-class FixedBatch:
-    def __init__(self, batch):
-        self.batch = batch
-
-    def __call__(self, **kwargs):
-        return dict(self.batch)
+def gate(x, card):
+    psi = F.cosine_similarity(x, card, dim=-1).unsqueeze(-1)
+    plus = F.softplus(K * psi + C)
+    minus = F.softplus(-K * psi + C)
+    return (plus / (plus + minus)).clamp(*CLIP)
 
 
 @contextmanager
-def steer(adapter, batch):
-    m = authors.rudder()
-    attention = m.get_qwenvl_self_attn(adapter.model, LAYER)
-    with torch.no_grad():
-        card = m.compute_card_vector_batch(
-            adapter.model,
-            FixedBatch(batch),
-            images=[None],
-            questions=["native prompt"],
-            layer_idx=LAYER,
-            pooling="attn",
-            local=False,
-        )
-    m.mask_carrier.set(batch["attention_mask"].unsqueeze(-1).float())
-    hook = m.BayesianGatingHookMaskedDynamic(
-        max_alpha=ALPHA,
-        sensitivity=5.0,
-        concentration=1.0,
-        carrier=m.mask_carrier,
-        clamp=(0.05, 1.0),
-        rms_match=False,
-        record=False,
-    )
-    hook.set_vector(card)
-    handle = attention.register_forward_hook(hook)
+def steer(adapter):
+    layer = adapter.layers[LAYER]
+    update = layer.post_attention_layernorm if adapter.model_type == "gemma4" else layer.self_attn
+    state = {}
+
+    def read(module, args, output):
+        state["x"] = output[:, -1:].float()
+
+    def add(module, args, output):
+        u = output_tensor(output)
+        if "card" not in state:
+            state["card"] = F.normalize(u.float().sum(1, keepdim=True), dim=-1)
+        card = state["card"]
+        steered = u.clone()
+        steered[:, -1:] = (u[:, -1:].float() + ALPHA * gate(state["x"], card) * card).to(u.dtype)
+        return with_output(output, steered)
+
+    handles = [
+        layer.input_layernorm.register_forward_hook(read),
+        update.register_forward_hook(add),
+    ]
     try:
         yield
     finally:
-        handle.remove()
-        m.mask_carrier.clear()
+        for h in handles:
+            h.remove()

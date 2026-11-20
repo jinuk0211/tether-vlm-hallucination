@@ -38,7 +38,7 @@ everything a run writes, `upstream/` for the released code of the baselines and 
 
 ```
 pip install -e ".[eval,baselines,analysis]"
-python -m tether.upstream                 # pinned checkouts of RUDDER, GrAInS, VTI, CHAIR, THRONE
+python -m tether.upstream                 # pinned checkouts of GrAInS, VTI, CHAIR, THRONE
 bash scripts/setup_scorers.sh             # NLTK data, THRONE environment and Flan-T5 judges
 python -m tether.data.sets                # images, annotations and all evaluation sets
 python -m tether.vocab                    # V_obj for each model
@@ -90,7 +90,8 @@ image list and object masks, then `probe`, `summary` and `positions`.
 
 ```
 python -m tether.baselines.fit --model qwen --method revis        # directions: revis, grains (all models),
-                                                                  # vti-authors (Qwen2.5, Qwen3), vti (Gemma)
+                                                                  # vti-authors (Qwen2.5, Qwen3), vti (Gemma),
+                                                                  # vti-released (Qwen2.5, case studies)
 python -m tether.decode --model qwen3 --tag base --data data/sets/chair_test500.jsonl --output outputs/runs/chair_test500/qwen3
 python -m tether.analysis.decay.collect --model qwen3             # r(t) of Qwen3-VL from its Base captions
 python -m tether.analysis.decay.analyze outputs/decay qwen3       # (Qwen2.5 and Gemma: from the audit)
@@ -101,6 +102,7 @@ python -m tether.eval.chair data/sets/chair_test500.jsonl outputs/runs/chair_tes
 
 python -m tether.experiments.chair queue --table ablation         # -steering, -penalty, -belief (Qwen2.5, Gemma)
 python -m tether.experiments.chair queue --table dev              # CHAIR on the 100 development images
+python -m tether.experiments.chair queue --table cases            # Qwen2.5 VTI with the unnormalized demonstrations
 
 python -m tether.experiments.throne queue --gpus 4                # THRONE: every row on all 5,000 images
 python -m tether.experiments.throne join
@@ -137,7 +139,6 @@ only in layers 1–24; layers 25–42 reuse those of layers 23 and 24.
 
 | | |
 |---|---|
-| RUDDER | Akko000/RUDDER-Residual-Update-Directed-DEcoding-Regulation- `bd149d8` |
 | GrAInS | duykhuongnguyen/GrAInS `8ad78db` |
 | VTI | shengliu66/VTI `bb5dfee` |
 | CHAIR | Maxlinn/CHAIR-metric-standalone `4087a26` |

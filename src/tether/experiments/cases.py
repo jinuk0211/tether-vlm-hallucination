@@ -6,7 +6,7 @@ from tether.eval.chair import scorer, sentences
 from tether.paths import RUNS, SETS
 from tether.utils import read_jsonl
 
-TAGS = ("base", "rudder", "grains", "vti-authors", "tether")
+TAGS = ("base", "rudder", "grains", "vti-released", "tether")
 
 
 def main():

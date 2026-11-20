@@ -28,11 +28,6 @@ def load_function(path, name, namespace):
 
 
 @lru_cache(maxsize=None)
-def rudder():
-    return load_file("rudder_methods", UPSTREAM / "rudder/Qwen/qwen_methods.py")
-
-
-@lru_cache(maxsize=None)
 def grains():
     root = UPSTREAM / "grains/src"
     package = types.ModuleType("grains_gradient")

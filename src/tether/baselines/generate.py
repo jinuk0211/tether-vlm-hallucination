@@ -11,13 +11,14 @@ from tether.baselines.fp16 import MODULES, fp32_attention_scores
 from tether.models import CONFIGS, MODELS, load
 from tether.utils import add_run_args, run_rows, seed_everything
 
-METHODS = ("base", "revis", "rudder", "grains", "vti", "vti-authors")
-FP16 = ("grains", "vti-authors")
+METHODS = ("base", "revis", "rudder", "grains", "vti", "vti-authors", "vti-released")
+FP16 = ("grains", "vti-authors", "vti-released")
 STEER = {
     "revis": revis.steer,
     "grains": grains.steer,
     "vti": vti.steer,
     "vti-authors": vti.steer_authors,
+    "vti-released": vti.steer_authors,
 }
 
 
@@ -47,7 +48,7 @@ def main():
                 seed_everything(42)
                 start = time.perf_counter()
                 batch = adapter.prepare(ref["image"], ref["prompt"])
-                with rudder.steer(adapter, batch) if args.method == "rudder" else nullcontext():
+                with rudder.steer(adapter) if args.method == "rudder" else nullcontext():
                     text, n = adapter.generate(batch, ref["max_new_tokens"])
                 row = {
                     **ref,

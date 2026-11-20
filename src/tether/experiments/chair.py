@@ -23,13 +23,15 @@ def setting(model, tag):
 def units(table):
     if table == "ablation":
         return [(m, t) for m in ABLATION for t in REMOVE]
+    if table == "cases":
+        return [("qwen", "vti-released")]
     return [(m, t) for m, tags in TABLE.items() for t in tags]
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("command", choices=["queue", "join"])
-    p.add_argument("--table", choices=["test", "dev", "ablation"], default="test")
+    p.add_argument("--table", choices=["test", "dev", "ablation", "cases"], default="test")
     p.add_argument("--gpus", type=int, default=1)
     p.add_argument("--chunk", type=int, default=50)
     args = p.parse_args()
