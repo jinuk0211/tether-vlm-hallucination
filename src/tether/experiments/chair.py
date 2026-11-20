@@ -7,7 +7,7 @@ from tether.paths import RUNS, SETS
 TABLE = {
     "qwen": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
     "qwen3": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
-    "gemma": ["base", "revis", "rudder", "grains", "vti", "m3id", "tether"],
+    "gemma": ["base", "revis", "rudder", "grains", "vti-authors", "m3id", "tether"],
 }
 ABLATION = {"qwen": TABLE["qwen"], "gemma": TABLE["gemma"]}
 REMOVE = {"tether-nosteer": "alpha", "tether-nopen": "pen", "tether-nobelief": "lam"}

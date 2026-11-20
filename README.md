@@ -89,9 +89,8 @@ image list and object masks, then `probe`, `summary` and `positions`.
 ## Experiments (Sec. 5)
 
 ```
-python -m tether.baselines.fit --model qwen --method revis        # directions: revis, grains (all models),
-                                                                  # vti-authors (Qwen2.5, Qwen3), vti (Gemma),
-                                                                  # vti-released (Qwen2.5, case studies)
+python -m tether.baselines.fit --model qwen --method revis        # directions: revis, grains, vti-authors
+                                                                  # (all models), vti-released (Qwen2.5, case studies)
 python -m tether.decode --model qwen3 --tag base --data data/sets/chair_test500.jsonl --output outputs/runs/chair_test500/qwen3
 python -m tether.analysis.decay.collect --model qwen3             # r(t) of Qwen3-VL from its Base captions
 python -m tether.analysis.decay.analyze outputs/decay qwen3       # (Qwen2.5 and Gemma: from the audit)
@@ -115,6 +114,11 @@ python -m tether.experiments.cases --selfcheck outputs/audit/selfcheck/qwen-base
 
 Every TETHER row, on CHAIR and THRONE, uses the setting (L, α, λ, π) of its model in `TETHER` of
 `experiments/common.py`. VCD runs with `python -m tether.baselines.contrastive --method vcd`.
+
+VTI calls the released code on all three backbones, with the released demonstrations and strength 0.9 for both
+directions. Qwen2.5-VL and Qwen3-VL run in FP16 as released. Gemma 4 runs in BF16, and the FP16 output of the released
+VTI layer is cast back to BF16. On Gemma the masked patches are its 16-pixel input patches, and the masked images are
+kept in BF16 (about 12 GB of host memory for the 70 × 50 masked images).
 
 ## Steering sites
 

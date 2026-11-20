@@ -12,7 +12,6 @@ NAMES = {
     "revis": "REVIS",
     "rudder": "RUDDER",
     "grains": "GrAInS",
-    "vti": "VTI",
     "vti-authors": "VTI",
     "m3id": "M3ID",
     "tether": "TETHER",

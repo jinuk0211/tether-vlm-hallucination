@@ -4,7 +4,7 @@ from pathlib import Path
 from tether.paths import RUNS
 from tether.utils import read_jsonl, write_jsonl
 
-BASELINES = ("revis", "rudder", "grains", "vti", "vti-authors", "vti-released")
+BASELINES = ("revis", "rudder", "grains", "vti-authors", "vti-released")
 TETHER = {
     "qwen": {"layer": 16, "alpha": 2, "lam": 1, "pen": 1},
     "qwen3": {"layer": 20, "alpha": 1, "lam": 1, "pen": 0.5},

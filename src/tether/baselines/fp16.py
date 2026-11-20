@@ -7,6 +7,11 @@ MODULES = {
     "qwen2_5_vl": "transformers.models.qwen2_5_vl.modeling_qwen2_5_vl",
     "qwen3_vl": "transformers.models.qwen3_vl.modeling_qwen3_vl",
 }
+FP16 = {
+    "grains": ("qwen", "qwen3", "gemma"),
+    "vti-authors": ("qwen", "qwen3"),
+    "vti-released": ("qwen", "qwen3"),
+}
 
 
 @contextmanager
